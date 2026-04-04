@@ -14,7 +14,7 @@ import {
 } from 'firebase/auth';
 import { FirebaseError } from 'firebase/app';
 import { ref, set, get, update, onValue, off } from 'firebase/database';
-import { auth, database } from '@/lib/firebase';
+import { auth, database, isFirebaseConfigured } from '@/lib/firebase';
 
 interface UserVPJS {
   uidVPJS: string;
@@ -44,7 +44,6 @@ interface TimerVPJS {
 interface AuthContextTypeVPJS {
   userVPJS: UserVPJS | null;
   loadingVPJS: boolean;
-  firebaseErrorVPJS: string | null;
   signInVPJS: (email: string, password: string) => Promise<void>;
   signUpVPJS: (nome: string, email: string, password: string) => Promise<void>;
   signOutVPJS: () => Promise<void>;
@@ -68,6 +67,11 @@ googleProvider.addScope('profile');
 const facebookProvider = new FacebookAuthProvider();
 facebookProvider.addScope('email');
 facebookProvider.addScope('public_profile');
+
+// Local storage keys for demo mode
+const LOCAL_USER_KEY = 'geofence_user_vpjs';
+const LOCAL_USERS_KEY = 'geofence_users_vpjs';
+const LOCAL_POLYGONS_KEY = 'geofence_polygons_vpjs';
 
 // Firebase error messages in Portuguese
 function getFirebaseErrorMessage(error: FirebaseError): string {
@@ -103,10 +107,31 @@ function getFirebaseErrorMessage(error: FirebaseError): string {
     case 'auth/configuration-not-found':
       return 'Configuração não encontrada. Verifique o Firebase Console.';
     case 'auth/invalid-api-key':
-      return 'API Key inválida. Verifique as variáveis de ambiente.';
+      return 'API Key inválida. Verifique o arquivo .env.local';
     default:
       console.error('Firebase auth error:', error.code, error.message);
       return `Erro: ${error.message}`;
+  }
+}
+
+// Helper functions for localStorage
+function getStoredUser(): UserVPJS | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const storedUser = localStorage.getItem(LOCAL_USER_KEY);
+    return storedUser ? JSON.parse(storedUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getStoredUsers(): any[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const users = localStorage.getItem(LOCAL_USERS_KEY);
+    return users ? JSON.parse(users) : [];
+  } catch {
+    return [];
   }
 }
 
@@ -137,17 +162,22 @@ async function checkEmailExistsInFirebase(email: string): Promise<boolean> {
 export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
   const [userVPJS, setUserVPJS] = useState<UserVPJS | null>(null);
   const [loadingVPJS, setLoadingVPJS] = useState(true);
-  const [firebaseErrorVPJS, setFirebaseErrorVPJS] = useState<string | null>(null);
   const [polygonsVPJS, setPolygonsVPJS] = useState<PolygonVPJS[] | null>(null); // null = não carregado ainda
   const [timerVPJS, setTimerVPJS] = useState<TimerVPJS | null>(null); // null = sem timer ativo
 
   // Firebase auth state listener
   useEffect(() => {
-    // Verificar se o Firebase está configurado
-    if (!auth || !database) {
-      console.error('❌ Firebase não configurado! Configure as variáveis de ambiente.');
-      setFirebaseErrorVPJS('Firebase não configurado. Configure as variáveis de ambiente no Vercel.');
-      setLoadingVPJS(false);
+    // Se não tem Firebase configurado, usa modo demo
+    if (!isFirebaseConfigured || !auth) {
+      console.log('🔥 Demo mode - no Firebase');
+      // Usar setTimeout para garantir que está no cliente
+      setTimeout(() => {
+        const storedUser = getStoredUser();
+        if (storedUser) {
+          setUserVPJS(storedUser);
+        }
+        setLoadingVPJS(false);
+      }, 0);
       return;
     }
 
@@ -165,36 +195,36 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
           console.log('🔥 onAuthStateChanged - Email do providerData:', emailVPJS);
         }
         
-        // Buscar dados do usuário no database
-        try {
-          const userRef = ref(database, `usuarios/${firebaseUser.uid}`);
-          const snapshot = await get(userRef);
-          
-          if (snapshot.exists()) {
-            // Usuário existe no database - carregar dados
-            const dbData = snapshot.val();
+        // Salvar no database se disponível
+        if (database) {
+          try {
+            const userRef = ref(database, `usuarios/${firebaseUser.uid}`);
+            const snapshot = await get(userRef);
             
-            // Atualizar email se estiver vazio no database mas temos o email
-            if ((!dbData.emailVPJS || dbData.emailVPJS === '') && emailVPJS) {
-              console.log('🔥 onAuthStateChanged - Atualizando email vazio para:', emailVPJS);
-              await update(userRef, { emailVPJS: emailVPJS });
+            if (snapshot.exists()) {
+              // Usuário existe no database - carregar dados
+              const dbData = snapshot.val();
+              
+              // Atualizar email se estiver vazio no database mas temos o email
+              if ((!dbData.emailVPJS || dbData.emailVPJS === '') && emailVPJS) {
+                console.log('🔥 onAuthStateChanged - Atualizando email vazio para:', emailVPJS);
+                await update(userRef, { emailVPJS: emailVPJS });
+              }
+              
+              setUserVPJS({
+                uidVPJS: firebaseUser.uid,
+                emailVPJS: emailVPJS || dbData.emailVPJS || '',
+                nomeVPJS: dbData.nomeVPJS || firebaseUser.displayName || 'Usuário',
+              });
+            } else {
+              // Usuário NÃO existe no database - não criar automaticamente
+              // Isso significa que foi um login social sem cadastro prévio
+              console.log('🔥 onAuthStateChanged - Usuário não existe no database, fazendo signOut');
+              await firebaseSignOut(auth);
+              setUserVPJS(null);
             }
-            
-            setUserVPJS({
-              uidVPJS: firebaseUser.uid,
-              emailVPJS: emailVPJS || dbData.emailVPJS || '',
-              nomeVPJS: dbData.nomeVPJS || firebaseUser.displayName || 'Usuário',
-            });
-          } else {
-            // Usuário NÃO existe no database - não criar automaticamente
-            // Isso significa que foi um login social sem cadastro prévio
-            console.log('🔥 onAuthStateChanged - Usuário não existe no database, fazendo signOut');
-            await firebaseSignOut(auth);
-            setUserVPJS(null);
-          }
-        } catch (err) {
-          console.error('🔥 Database error:', err);
-          // Em caso de erro, permitir login mesmo assim
+          } catch (err) {console.error('🔥 Database error:', err);} 
+        } else {
           setUserVPJS({
             uidVPJS: firebaseUser.uid,
             emailVPJS: emailVPJS,
@@ -287,18 +317,41 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
     return () => off(timerRef);
   }, [userVPJS]);
 
-  const signInVPJS = useCallback(async (email: string, password: string) => {
-    if (!auth) {
-      throw new Error('Firebase não configurado.');
-    }
-    
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (error) {
-      if (error instanceof FirebaseError) {
-        throw new Error(getFirebaseErrorMessage(error));
+  // Update localStorage for demo mode
+  useEffect(() => {
+    if (!isFirebaseConfigured) {
+      if (userVPJS) {
+        localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(userVPJS));
+      } else {
+        localStorage.removeItem(LOCAL_USER_KEY);
       }
-      throw error;
+    }
+  }, [userVPJS]);
+
+  const signInVPJS = useCallback(async (email: string, password: string) => {
+    if (isFirebaseConfigured && auth) {
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (error) {
+        if (error instanceof FirebaseError) {
+          throw new Error(getFirebaseErrorMessage(error));
+        }
+        throw error;
+      }
+    } else {
+      const users = getStoredUsers();
+      const existingUser = users.find((u: any) => u.emailVPJS === email);
+      
+      if (!existingUser) throw new Error('Usuário não encontrado.');
+      if (existingUser.passwordVPJS !== password) throw new Error('Senha incorreta.');
+      
+      const userData: UserVPJS = {
+        uidVPJS: existingUser.uidVPJS,
+        emailVPJS: existingUser.emailVPJS,
+        nomeVPJS: existingUser.nomeVPJS,
+      };
+      
+      setUserVPJS(userData);
     }
   }, []);
 
@@ -307,56 +360,81 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
       throw new Error('A senha deve ter pelo menos 6 caracteres.');
     }
     
-    if (!auth || !database) {
-      throw new Error('Firebase não configurado.');
-    }
-    
-    try {
-      // Verificar se o email já existe no banco de dados
-      const emailExists = await checkEmailExistsInFirebase(email);
-      if (emailExists) {
-        throw new Error('Já existe uma conta cadastrada com este email.');
+    if (isFirebaseConfigured && auth) {
+      try {
+        // Verificar se o email já existe no banco de dados
+        const emailExists = await checkEmailExistsInFirebase(email);
+        if (emailExists) {
+          throw new Error('Já existe uma conta cadastrada com este email.');
+        }
+        
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const firebaseUser = userCredential.user;
+        
+        if (database) {
+          const userRef = ref(database, `usuarios/${firebaseUser.uid}`);
+          await set(userRef, {
+            nomeVPJS: nome,
+            emailVPJS: email.toLowerCase(),
+            dataCriacaoVPJS: new Date().toISOString(),
+            animais: {}
+          });
+        }
+      } catch (error) {
+        if (error instanceof FirebaseError) {
+          throw new Error(getFirebaseErrorMessage(error));
+        }
+        throw error;
+      }
+    } else {
+      const users = getStoredUsers();
+      if (users.find((u: any) => u.emailVPJS === email)) {
+        throw new Error('Este email já está cadastrado.');
       }
       
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const firebaseUser = userCredential.user;
-      
-      const userRef = ref(database, `usuarios/${firebaseUser.uid}`);
-      await set(userRef, {
+      const newUser = {
+        uidVPJS: `user_${Date.now()}`,
         nomeVPJS: nome,
-        emailVPJS: email.toLowerCase(),
+        emailVPJS: email,
+        passwordVPJS: password,
         dataCriacaoVPJS: new Date().toISOString(),
-        animais: {}
+      };
+      
+      users.push(newUser);
+      localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
+      
+      setUserVPJS({
+        uidVPJS: newUser.uidVPJS,
+        emailVPJS: newUser.emailVPJS,
+        nomeVPJS: newUser.nomeVPJS,
       });
-    } catch (error) {
-      if (error instanceof FirebaseError) {
-        throw new Error(getFirebaseErrorMessage(error));
-      }
-      throw error;
     }
   }, []);
 
   const signOutVPJS = useCallback(async () => {
-    if (auth) {
+    if (isFirebaseConfigured && auth) {
       await firebaseSignOut(auth);
     }
+    localStorage.removeItem(LOCAL_USER_KEY);
     setUserVPJS(null);
     setPolygonsVPJS(null);
-    setTimerVPJS(null);
   }, []);
 
   const resetPasswordVPJS = useCallback(async (email: string) => {
-    if (!auth) {
-      throw new Error('Firebase não configurado.');
-    }
-    
-    try {
-      await sendPasswordResetEmail(auth, email);
-    } catch (error) {
-      if (error instanceof FirebaseError) {
-        throw new Error(getFirebaseErrorMessage(error));
+    if (isFirebaseConfigured && auth) {
+      try {
+        await sendPasswordResetEmail(auth, email);
+      } catch (error) {
+        if (error instanceof FirebaseError) {
+          throw new Error(getFirebaseErrorMessage(error));
+        }
+        throw error;
       }
-      throw error;
+    } else {
+      const users = getStoredUsers();
+      if (!users.find((u: any) => u.emailVPJS === email)) {
+        throw new Error('Este email não está cadastrado.');
+      }
     }
   }, []);
 
@@ -364,96 +442,108 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
   // LOGIN SOCIAL - Só entra se já tiver conta no database
   // ============================================
   const signInWithGoogleVPJS = useCallback(async () => {
-    if (!auth || !database) {
-      throw new Error('Firebase não configurado.');
-    }
-    
-    try {
-      const userCredential = await signInWithPopup(auth, googleProvider);
-      const firebaseUser = userCredential.user;
-      
-      console.log('🔥 Google login - email:', firebaseUser.email);
-      console.log('🔥 Google login - displayName:', firebaseUser.displayName);
-      console.log('🔥 Google login - providerData:', firebaseUser.providerData);
-      
-      // Tentar pegar email de providerData se não estiver no user
-      let emailVPJS = firebaseUser.email || '';
-      if (!emailVPJS && firebaseUser.providerData && firebaseUser.providerData.length > 0) {
-        emailVPJS = firebaseUser.providerData[0].email || '';
-        console.log('🔥 Email do providerData:', emailVPJS);
+    if (isFirebaseConfigured && auth) {
+      try {
+        const userCredential = await signInWithPopup(auth, googleProvider);
+        const firebaseUser = userCredential.user;
+        
+        console.log('🔥 Google login - email:', firebaseUser.email);
+        console.log('🔥 Google login - displayName:', firebaseUser.displayName);
+        console.log('🔥 Google login - providerData:', firebaseUser.providerData);
+        
+        // Tentar pegar email de providerData se não estiver no user
+        let emailVPJS = firebaseUser.email || '';
+        if (!emailVPJS && firebaseUser.providerData && firebaseUser.providerData.length > 0) {
+          emailVPJS = firebaseUser.providerData[0].email || '';
+          console.log('🔥 Email do providerData:', emailVPJS);
+        }
+        
+        // Verificar se o usuário já existe no database
+        if (database) {
+          const userRef = ref(database, `usuarios/${firebaseUser.uid}`);
+          const snapshot = await get(userRef);
+          
+          if (!snapshot.exists()) {
+            // Usuário NÃO existe no database - fazer signOut e mostrar erro
+            console.log('🔥 Login Google - Usuário não existe no database');
+            await firebaseSignOut(auth);
+            throw new Error('Conta não encontrada. Por favor, cadastre-se primeiro.');
+          }
+          
+          console.log('🔥 Login Google - Usuário encontrado, login permitido');
+          
+          // Atualizar email se estiver vazio
+          const existingData = snapshot.val();
+          if ((!existingData.emailVPJS || existingData.emailVPJS === '') && emailVPJS) {
+            console.log('🔥 Atualizando email vazio para:', emailVPJS);
+            await update(userRef, { emailVPJS: emailVPJS });
+          }
+        }
+      } catch (error) {
+        if (error instanceof FirebaseError) {
+          throw new Error(getFirebaseErrorMessage(error));
+        }
+        throw error;
       }
-      
-      // Verificar se o usuário já existe no database
-      const userRef = ref(database, `usuarios/${firebaseUser.uid}`);
-      const snapshot = await get(userRef);
-      
-      if (!snapshot.exists()) {
-        // Usuário NÃO existe no database - fazer signOut e mostrar erro
-        console.log('🔥 Login Google - Usuário não existe no database');
-        await firebaseSignOut(auth);
-        throw new Error('Conta não encontrada. Por favor, cadastre-se primeiro.');
-      }
-      
-      console.log('🔥 Login Google - Usuário encontrado, login permitido');
-      
-      // Atualizar email se estiver vazio
-      const existingData = snapshot.val();
-      if ((!existingData.emailVPJS || existingData.emailVPJS === '') && emailVPJS) {
-        console.log('🔥 Atualizando email vazio para:', emailVPJS);
-        await update(userRef, { emailVPJS: emailVPJS });
-      }
-    } catch (error) {
-      if (error instanceof FirebaseError) {
-        throw new Error(getFirebaseErrorMessage(error));
-      }
-      throw error;
+    } else {
+      setUserVPJS({
+        uidVPJS: `google_${Date.now()}`,
+        emailVPJS: 'usuario@gmail.com',
+        nomeVPJS: 'Usuário Google',
+      });
     }
   }, []);
 
   const signInWithFacebookVPJS = useCallback(async () => {
-    if (!auth || !database) {
-      throw new Error('Firebase não configurado.');
-    }
-    
-    try {
-      const userCredential = await signInWithPopup(auth, facebookProvider);
-      const firebaseUser = userCredential.user;
-      
-      console.log('🔥 Facebook login - email:', firebaseUser.email);
-      console.log('🔥 Facebook login - displayName:', firebaseUser.displayName);
-      console.log('🔥 Facebook login - providerData:', firebaseUser.providerData);
-      
-      // Tentar pegar email de providerData se não estiver no user
-      let emailVPJS = firebaseUser.email || '';
-      if (!emailVPJS && firebaseUser.providerData && firebaseUser.providerData.length > 0) {
-        emailVPJS = firebaseUser.providerData[0].email || '';
-        console.log('🔥 Email do providerData:', emailVPJS);
+    if (isFirebaseConfigured && auth) {
+      try {
+        const userCredential = await signInWithPopup(auth, facebookProvider);
+        const firebaseUser = userCredential.user;
+        
+        console.log('🔥 Facebook login - email:', firebaseUser.email);
+        console.log('🔥 Facebook login - displayName:', firebaseUser.displayName);
+        console.log('🔥 Facebook login - providerData:', firebaseUser.providerData);
+        
+        // Tentar pegar email de providerData se não estiver no user
+        let emailVPJS = firebaseUser.email || '';
+        if (!emailVPJS && firebaseUser.providerData && firebaseUser.providerData.length > 0) {
+          emailVPJS = firebaseUser.providerData[0].email || '';
+          console.log('🔥 Email do providerData:', emailVPJS);
+        }
+        
+        // Verificar se o usuário já existe no database
+        if (database) {
+          const userRef = ref(database, `usuarios/${firebaseUser.uid}`);
+          const snapshot = await get(userRef);
+          
+          if (!snapshot.exists()) {
+            // Usuário NÃO existe no database - fazer signOut e mostrar erro
+            console.log('🔥 Login Facebook - Usuário não existe no database');
+            await firebaseSignOut(auth);
+            throw new Error('Conta não encontrada. Por favor, cadastre-se primeiro.');
+          }
+          
+          console.log('🔥 Login Facebook - Usuário encontrado, login permitido');
+          
+          // Atualizar email se estiver vazio
+          const existingData = snapshot.val();
+          if ((!existingData.emailVPJS || existingData.emailVPJS === '') && emailVPJS) {
+            console.log('🔥 Atualizando email vazio para:', emailVPJS);
+            await update(userRef, { emailVPJS: emailVPJS });
+          }
+        }
+      } catch (error) {
+        if (error instanceof FirebaseError) {
+          throw new Error(getFirebaseErrorMessage(error));
+        }
+        throw error;
       }
-      
-      // Verificar se o usuário já existe no database
-      const userRef = ref(database, `usuarios/${firebaseUser.uid}`);
-      const snapshot = await get(userRef);
-      
-      if (!snapshot.exists()) {
-        // Usuário NÃO existe no database - fazer signOut e mostrar erro
-        console.log('🔥 Login Facebook - Usuário não existe no database');
-        await firebaseSignOut(auth);
-        throw new Error('Conta não encontrada. Por favor, cadastre-se primeiro.');
-      }
-      
-      console.log('🔥 Login Facebook - Usuário encontrado, login permitido');
-      
-      // Atualizar email se estiver vazio
-      const existingData = snapshot.val();
-      if ((!existingData.emailVPJS || existingData.emailVPJS === '') && emailVPJS) {
-        console.log('🔥 Atualizando email vazio para:', emailVPJS);
-        await update(userRef, { emailVPJS: emailVPJS });
-      }
-    } catch (error) {
-      if (error instanceof FirebaseError) {
-        throw new Error(getFirebaseErrorMessage(error));
-      }
-      throw error;
+    } else {
+      setUserVPJS({
+        uidVPJS: `facebook_${Date.now()}`,
+        emailVPJS: 'usuario@facebook.com',
+        nomeVPJS: 'Usuário Facebook',
+      });
     }
   }, []);
 
@@ -461,144 +551,161 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
   // CADASTRO SOCIAL - Cria conta nova no database
   // ============================================
   const signUpWithGoogleVPJS = useCallback(async () => {
-    if (!auth || !database) {
-      throw new Error('Firebase não configurado.');
-    }
-    
-    try {
-      const userCredential = await signInWithPopup(auth, googleProvider);
-      const firebaseUser = userCredential.user;
-      
-      console.log('🔥 Google signup - email:', firebaseUser.email);
-      console.log('🔥 Google signup - displayName:', firebaseUser.displayName);
-      console.log('🔥 Google signup - providerData:', firebaseUser.providerData);
-      
-      // Tentar pegar email de providerData se não estiver no user
-      let emailVPJS = firebaseUser.email || '';
-      if (!emailVPJS && firebaseUser.providerData && firebaseUser.providerData.length > 0) {
-        emailVPJS = firebaseUser.providerData[0].email || '';
-        console.log('🔥 Email do providerData:', emailVPJS);
-      }
-      
-      const nomeVPJS = firebaseUser.displayName || 'Usuário Google';
-      
-      const userRef = ref(database, `usuarios/${firebaseUser.uid}`);
-      const snapshot = await get(userRef);
-      
-      if (snapshot.exists()) {
-        // Já existe - não criar novamente
-        console.log('🔥 Signup Google - Conta já existe, fazendo login');
-      } else {
-        // Verificar se o email já existe em outra conta
-        const emailExists = await checkEmailExistsInFirebase(emailVPJS);
-        if (emailExists) {
-          await firebaseSignOut(auth);
-          throw new Error('Já existe uma conta cadastrada com este email do Google.');
+    if (isFirebaseConfigured && auth) {
+      try {
+        const userCredential = await signInWithPopup(auth, googleProvider);
+        const firebaseUser = userCredential.user;
+        
+        console.log('🔥 Google signup - email:', firebaseUser.email);
+        console.log('🔥 Google signup - displayName:', firebaseUser.displayName);
+        console.log('🔥 Google signup - providerData:', firebaseUser.providerData);
+        
+        // Tentar pegar email de providerData se não estiver no user
+        let emailVPJS = firebaseUser.email || '';
+        if (!emailVPJS && firebaseUser.providerData && firebaseUser.providerData.length > 0) {
+          emailVPJS = firebaseUser.providerData[0].email || '';
+          console.log('🔥 Email do providerData:', emailVPJS);
         }
         
-        // Criar nova conta
-        console.log('🔥 Signup Google - Criando nova conta com email:', emailVPJS);
-        await set(userRef, {
-          nomeVPJS: nomeVPJS,
-          emailVPJS: emailVPJS.toLowerCase(),
-          dataCriacaoVPJS: new Date().toISOString(),
-          animais: {}
-        });
-        console.log('🔥 Signup Google - Conta criada com sucesso!');
+        const nomeVPJS = firebaseUser.displayName || 'Usuário Google';
+        
+        if (database) {
+          const userRef = ref(database, `usuarios/${firebaseUser.uid}`);
+          const snapshot = await get(userRef);
+          
+          if (snapshot.exists()) {
+            // Já existe - não criar novamente
+            console.log('🔥 Signup Google - Conta já existe, fazendo login');
+          } else {
+            // Verificar se o email já existe em outra conta
+            const emailExists = await checkEmailExistsInFirebase(emailVPJS);
+            if (emailExists) {
+              await firebaseSignOut(auth);
+              throw new Error('Já existe uma conta cadastrada com este email do Google.');
+            }
+            
+            // Criar nova conta
+            console.log('🔥 Signup Google - Criando nova conta com email:', emailVPJS);
+            await set(userRef, {
+              nomeVPJS: nomeVPJS,
+              emailVPJS: emailVPJS.toLowerCase(),
+              dataCriacaoVPJS: new Date().toISOString(),
+              animais: {}
+            });
+            console.log('🔥 Signup Google - Conta criada com sucesso!');
+          }
+        }
+      } catch (error) {
+        if (error instanceof FirebaseError) {
+          throw new Error(getFirebaseErrorMessage(error));
+        }
+        throw error;
       }
-    } catch (error) {
-      if (error instanceof FirebaseError) {
-        throw new Error(getFirebaseErrorMessage(error));
-      }
-      throw error;
+    } else {
+      setUserVPJS({
+        uidVPJS: `google_${Date.now()}`,
+        emailVPJS: 'usuario@gmail.com',
+        nomeVPJS: 'Usuário Google',
+      });
     }
   }, []);
 
   const signUpWithFacebookVPJS = useCallback(async () => {
-    if (!auth || !database) {
-      throw new Error('Firebase não configurado.');
-    }
-    
-    try {
-      const userCredential = await signInWithPopup(auth, facebookProvider);
-      const firebaseUser = userCredential.user;
-      
-      console.log('🔥 Facebook signup - email:', firebaseUser.email);
-      console.log('🔥 Facebook signup - displayName:', firebaseUser.displayName);
-      console.log('🔥 Facebook signup - providerData:', firebaseUser.providerData);
-      
-      // Tentar pegar email de providerData se não estiver no user
-      let emailVPJS = firebaseUser.email || '';
-      if (!emailVPJS && firebaseUser.providerData && firebaseUser.providerData.length > 0) {
-        emailVPJS = firebaseUser.providerData[0].email || '';
-        console.log('🔥 Email do providerData:', emailVPJS);
-      }
-      
-      const nomeVPJS = firebaseUser.displayName || 'Usuário Facebook';
-      
-      const userRef = ref(database, `usuarios/${firebaseUser.uid}`);
-      const snapshot = await get(userRef);
-      
-      if (snapshot.exists()) {
-        // Já existe - não criar novamente
-        console.log('🔥 Signup Facebook - Conta já existe, fazendo login');
-      } else {
-        // Verificar se o email já existe em outra conta
-        const emailExists = await checkEmailExistsInFirebase(emailVPJS);
-        if (emailExists) {
-          await firebaseSignOut(auth);
-          throw new Error('Já existe uma conta cadastrada com este email do Facebook.');
+    if (isFirebaseConfigured && auth) {
+      try {
+        const userCredential = await signInWithPopup(auth, facebookProvider);
+        const firebaseUser = userCredential.user;
+        
+        console.log('🔥 Facebook signup - email:', firebaseUser.email);
+        console.log('🔥 Facebook signup - displayName:', firebaseUser.displayName);
+        console.log('🔥 Facebook signup - providerData:', firebaseUser.providerData);
+        
+        // Tentar pegar email de providerData se não estiver no user
+        let emailVPJS = firebaseUser.email || '';
+        if (!emailVPJS && firebaseUser.providerData && firebaseUser.providerData.length > 0) {
+          emailVPJS = firebaseUser.providerData[0].email || '';
+          console.log('🔥 Email do providerData:', emailVPJS);
         }
         
-        // Criar nova conta
-        console.log('🔥 Signup Facebook - Criando nova conta com email:', emailVPJS);
-        await set(userRef, {
-          nomeVPJS: nomeVPJS,
-          emailVPJS: emailVPJS.toLowerCase(),
-          dataCriacaoVPJS: new Date().toISOString(),
-          animais: {}
-        });
-        console.log('🔥 Signup Facebook - Conta criada com sucesso!');
+        const nomeVPJS = firebaseUser.displayName || 'Usuário Facebook';
+        
+        if (database) {
+          const userRef = ref(database, `usuarios/${firebaseUser.uid}`);
+          const snapshot = await get(userRef);
+          
+          if (snapshot.exists()) {
+            // Já existe - não criar novamente
+            console.log('🔥 Signup Facebook - Conta já existe, fazendo login');
+          } else {
+            // Verificar se o email já existe em outra conta
+            const emailExists = await checkEmailExistsInFirebase(emailVPJS);
+            if (emailExists) {
+              await firebaseSignOut(auth);
+              throw new Error('Já existe uma conta cadastrada com este email do Facebook.');
+            }
+            
+            // Criar nova conta
+            console.log('🔥 Signup Facebook - Criando nova conta com email:', emailVPJS);
+            await set(userRef, {
+              nomeVPJS: nomeVPJS,
+              emailVPJS: emailVPJS.toLowerCase(),
+              dataCriacaoVPJS: new Date().toISOString(),
+              animais: {}
+            });
+            console.log('🔥 Signup Facebook - Conta criada com sucesso!');
+          }
+        }
+      } catch (error) {
+        if (error instanceof FirebaseError) {
+          throw new Error(getFirebaseErrorMessage(error));
+        }
+        throw error;
       }
-    } catch (error) {
-      if (error instanceof FirebaseError) {
-        throw new Error(getFirebaseErrorMessage(error));
-      }
-      throw error;
+    } else {
+      setUserVPJS({
+        uidVPJS: `facebook_${Date.now()}`,
+        emailVPJS: 'usuario@facebook.com',
+        nomeVPJS: 'Usuário Facebook',
+      });
     }
   }, []);
 
   const savePolygonsVPJS = useCallback(async (polygons: PolygonVPJS[]) => {
     if (!userVPJS) throw new Error('Usuário não está logado');
-    if (!database) throw new Error('Firebase não configurado');
     
     console.log('🔥 Salvando polígonos:', polygons.length);
     
-    const polygonsRef = ref(database, `usuarios/${userVPJS.uidVPJS}/polygonsVPJS`);
-    await set(polygonsRef, polygons);
-    console.log('🔥 Polígonos salvos no Firebase!');
+    if (isFirebaseConfigured && database) {
+      const polygonsRef = ref(database, `usuarios/${userVPJS.uidVPJS}/polygonsVPJS`);
+      await set(polygonsRef, polygons);
+      console.log('🔥 Polígonos salvos no Firebase!');
+    } else {
+      const polygonsKey = `${LOCAL_POLYGONS_KEY}_${userVPJS.uidVPJS}`;
+      localStorage.setItem(polygonsKey, JSON.stringify(polygons));
+      setPolygonsVPJS(polygons);
+    }
   }, [userVPJS]);
 
   const saveTimerVPJS = useCallback(async (timer: TimerVPJS | null) => {
     if (!userVPJS) throw new Error('Usuário não está logado');
-    if (!database) throw new Error('Firebase não configurado');
     
     console.log('🔥 Salvando timer:', timer);
     
-    const timerRef = ref(database, `usuarios/${userVPJS.uidVPJS}/timerVPJS`);
-    if (timer) {
-      await set(timerRef, timer);
-      console.log('🔥 Timer salvo no Firebase!');
-    } else {
-      await set(timerRef, null);
-      console.log('🔥 Timer removido do Firebase!');
+    if (isFirebaseConfigured && database) {
+      const timerRef = ref(database, `usuarios/${userVPJS.uidVPJS}/timerVPJS`);
+      if (timer) {
+        await set(timerRef, timer);
+        console.log('🔥 Timer salvo no Firebase!');
+      } else {
+        await set(timerRef, null);
+        console.log('🔥 Timer removido do Firebase!');
+      }
     }
   }, [userVPJS]);
 
   const value = useMemo(() => ({
     userVPJS,
     loadingVPJS,
-    firebaseErrorVPJS,
     signInVPJS,
     signUpVPJS,
     signOutVPJS,
@@ -614,7 +721,6 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
   }), [
     userVPJS, 
     loadingVPJS, 
-    firebaseErrorVPJS,
     signInVPJS, 
     signUpVPJS, 
     signOutVPJS, 

@@ -46,4 +46,4 @@ if (isFirebaseConfigured) {
   console.error('   - NEXT_PUBLIC_FIREBASE_PROJECT_ID');
 }
 
-export { app, auth, database };
+export { app, auth, database, isFirebaseConfigured };
