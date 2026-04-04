@@ -515,7 +515,7 @@ export default function Home() {
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="z-[1001] bg-background/95 backdrop-blur-sm border-b border-border shrink-0 h-14 sticky top-0">
+      <header className="z-1001 bg-background/95 backdrop-blur-sm border-b border-border shrink-0 h-14 sticky top-0">
         <div className="px-4 py-2 h-full flex items-center justify-between">
           <div className="flex items-center gap-3">
             <DropdownMenu>
