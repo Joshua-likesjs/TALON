@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
-import { ref, onValue, off, get, update, remove } from 'firebase/database';
+import { ref, onValue, off, get, update } from 'firebase/database';
 import { database, isFirebaseConfigured } from '@/lib/firebase';
 import { useAuthVPJS } from '@/contexts/AuthContextVPJS';
 
@@ -33,81 +33,65 @@ interface AnimalsContextTypeVPJS {
 
 const AnimalsContextVPJS = createContext<AnimalsContextTypeVPJS | undefined>(undefined);
 
+// Local storage key for tracked animal codes (só os códigos, dados ficam no Firebase)
+const LOCAL_TRACKED_ANIMALS_KEY = 'talon_tracked_animals_codes_vpjs';
+
 export function AnimalsProviderVPJS({ children }: { children: React.ReactNode }) {
   const { userVPJS } = useAuthVPJS();
   const [trackedAnimals, setTrackedAnimals] = useState<TrackedAnimalVPJS[]>([]);
-  const [animaisUsuario, setAnimaisUsuario] = useState<{ [codigo: string]: { nomeVPJS: string; fotoVPJS?: string } }>({});
+  const [animalCodes, setAnimalCodes] = useState<string[]>([]);
 
-  // Carregar lista de animais do usuário do Firebase e sincronizar em tempo real
+  // Carregar códigos de animais do localStorage (por usuário)
   useEffect(() => {
-    if (!userVPJS || !isFirebaseConfigured || !database) {
-      // Se não tem usuário logado, limpar lista
-      setTrackedAnimals([]);
-      setAnimaisUsuario({});
-      return;
-    }
-
-    const animaisRef = ref(database, `usuarios/${userVPJS.uidVPJS}/animaisVPJS`);
+    if (typeof window === 'undefined' || !userVPJS) return;
     
-    console.log('🔥 Configurando listener para animais do usuário');
-    
-    const unsubscribe = onValue(animaisRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        console.log('🔥 Animais do usuário carregados:', data);
+    try {
+      const key = `${LOCAL_TRACKED_ANIMALS_KEY}_${userVPJS.uidVPJS}`;
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const codes = JSON.parse(stored) as string[];
+        console.log('🔥 Códigos de animais carregados:', codes);
+        setAnimalCodes(codes);
         
-        const animaisMap: { [codigo: string]: { nomeVPJS: string; fotoVPJS?: string } } = {};
-        const animalsList: TrackedAnimalVPJS[] = [];
-        
-        Object.keys(data).forEach((codigo) => {
-          const animalData = data[codigo];
-          animaisMap[codigo] = {
-            nomeVPJS: animalData.nomeVPJS || `Animal ${codigo}`,
-            fotoVPJS: animalData.fotoVPJS,
-          };
-          
-          animalsList.push({
-            codigoVPJS: codigo,
-            nomeVPJS: animalData.nomeVPJS || `Animal ${codigo}`,
-            fotoVPJS: animalData.fotoVPJS,
-            location: null,
-            loading: true,
-            error: null,
-          });
-        });
-        
-        setAnimaisUsuario(animaisMap);
-        setTrackedAnimals(animalsList);
-      } else {
-        console.log('🔥 Nenhum animal salvo para o usuário');
-        setAnimaisUsuario({});
-        setTrackedAnimals([]);
+        // Inicializar animais com loading
+        const initialAnimals: TrackedAnimalVPJS[] = codes.map(codigo => ({
+          codigoVPJS: codigo,
+          nomeVPJS: `Animal ${codigo}`,
+          location: null,
+          loading: true,
+          error: null,
+        }));
+        setTrackedAnimals(initialAnimals);
       }
-    }, (error) => {
-      console.error('Erro ao carregar animais do usuário:', error);
-    });
-
-    return () => {
-      off(animaisRef);
-    };
+    } catch (e) {
+      console.error('Erro ao carregar códigos de animais:', e);
+    }
   }, [userVPJS]);
 
-  // Configurar listeners do Firebase para localização de cada animal
+  // Salvar códigos no localStorage quando mudar
   useEffect(() => {
-    if (!isFirebaseConfigured || !database || trackedAnimals.length === 0) return;
+    if (typeof window === 'undefined' || !userVPJS) return;
+    
+    const key = `${LOCAL_TRACKED_ANIMALS_KEY}_${userVPJS.uidVPJS}`;
+    localStorage.setItem(key, JSON.stringify(animalCodes));
+  }, [animalCodes, userVPJS]);
+
+  // Configurar listeners do Firebase para cada animal (localização + foto + nome)
+  useEffect(() => {
+    if (!isFirebaseConfigured || !database || animalCodes.length === 0) return;
 
     const listeners: { [codigo: string]: () => void } = {};
 
-    trackedAnimals.forEach((animal) => {
-      const animalRef = ref(database, `animaisVPJS/${animal.codigoVPJS}`);
+    animalCodes.forEach((codigo) => {
+      const animalRef = ref(database, `animaisVPJS/${codigo}`);
       
-      console.log(`🔥 Configurando listener de localização para animal: ${animal.codigoVPJS}`);
+      console.log(`🔥 Configurando listener para animal: ${codigo}`);
       
       const unsubscribe = onValue(animalRef, (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.val();
           
-          // Verificar se os dados existem (campos sem sufixo VPJS no Firebase)
+          // Verificar se tem localização
           if (data && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
             const location: AnimalLocationVPJS = {
               latitudeVPJS: data.latitude,
@@ -115,43 +99,71 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
               timestampVPJS: data.timestamp || Date.now(),
             };
             
-            console.log(`🔥 Localização recebida para ${animal.codigoVPJS}:`, location);
+            // Nome e foto vêm do Firebase (campos diretos sem sufixo)
+            const nomeVPJS = data.nomeVPJS || data.nome || `Animal ${codigo}`;
+            const fotoVPJS = data.fotoVPJS || data.foto || undefined;
+            
+            console.log(`🔥 Dados recebidos para ${codigo}:`, { location, nomeVPJS, fotoVPJS: fotoVPJS ? 'tem foto' : 'sem foto' });
+            
+            setTrackedAnimals(prev => {
+              const existing = prev.find(a => a.codigoVPJS === codigo);
+              if (existing) {
+                return prev.map(a => 
+                  a.codigoVPJS === codigo 
+                    ? { ...a, nomeVPJS, fotoVPJS, location, loading: false, error: null }
+                    : a
+                );
+              } else {
+                return [...prev, {
+                  codigoVPJS: codigo,
+                  nomeVPJS,
+                  fotoVPJS,
+                  location,
+                  loading: false,
+                  error: null,
+                }];
+              }
+            });
+          } else if (data) {
+            // Tem dados mas não tem localização válida - pode ter nome/foto
+            const nomeVPJS = data.nomeVPJS || data.nome || `Animal ${codigo}`;
+            const fotoVPJS = data.fotoVPJS || data.foto || undefined;
             
             setTrackedAnimals(prev => prev.map(a => 
-              a.codigoVPJS === animal.codigoVPJS 
-                ? { ...a, location, loading: false, error: null }
+              a.codigoVPJS === codigo 
+                ? { ...a, nomeVPJS, fotoVPJS, loading: false, error: 'Dados de localização inválidos' }
                 : a
             ));
           } else {
             setTrackedAnimals(prev => prev.map(a => 
-              a.codigoVPJS === animal.codigoVPJS 
-                ? { ...a, loading: false, error: 'Dados de localização inválidos' }
+              a.codigoVPJS === codigo 
+                ? { ...a, loading: false, error: 'Animal não encontrado' }
                 : a
             ));
           }
         } else {
           setTrackedAnimals(prev => prev.map(a => 
-            a.codigoVPJS === animal.codigoVPJS 
+            a.codigoVPJS === codigo 
               ? { ...a, loading: false, error: 'Animal não encontrado' }
               : a
           ));
         }
       }, (error) => {
-        console.error(`Erro ao escutar animal ${animal.codigoVPJS}:`, error);
+        console.error(`Erro ao escutar animal ${codigo}:`, error);
         setTrackedAnimals(prev => prev.map(a => 
-          a.codigoVPJS === animal.codigoVPJS 
+          a.codigoVPJS === codigo 
             ? { ...a, loading: false, error: 'Erro ao carregar localização' }
             : a
         ));
       });
 
-      listeners[animal.codigoVPJS] = () => off(animalRef);
+      listeners[codigo] = () => off(animalRef);
     });
 
     return () => {
       Object.values(listeners).forEach(unsubscribe => unsubscribe());
     };
-  }, [trackedAnimals.map(a => a.codigoVPJS).join(','), userVPJS]);
+  }, [animalCodes.join(',')]);
 
   const addAnimal = useCallback(async (codigo: string, nome?: string, foto?: string) => {
     if (!codigo || codigo.trim() === '') {
@@ -161,14 +173,13 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     const codigoTrimmed = codigo.trim();
 
     // Verificar se já está rastreando
-    if (trackedAnimals.some(a => a.codigoVPJS === codigoTrimmed)) {
+    if (animalCodes.includes(codigoTrimmed)) {
       throw new Error('Este animal já está sendo rastreado');
     }
 
-    // Se tem Firebase, verificar se o animal existe e salvar
+    // Se tem Firebase, verificar se o animal existe e salvar nome/foto
     if (isFirebaseConfigured && database) {
       try {
-        // Verificar se o animal existe no nó de animais
         const animalRef = ref(database, `animaisVPJS/${codigoTrimmed}`);
         const snapshot = await get(animalRef);
         
@@ -176,15 +187,14 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
           throw new Error('Animal não encontrado no sistema');
         }
 
-        // Salvar no nó do usuário
-        if (userVPJS) {
-          const usuarioAnimalRef = ref(database, `usuarios/${userVPJS.uidVPJS}/animaisVPJS/${codigoTrimmed}`);
-          await update(usuarioAnimalRef, {
-            nomeVPJS: nome || `Animal ${codigoTrimmed}`,
-            fotoVPJS: foto || null,
-            adicionadoEmVPJS: Date.now(),
-          });
-          console.log(`🔥 Animal ${codigoTrimmed} salvo no Firebase do usuário`);
+        // Se tem nome ou foto, atualizar no nó do animal
+        if (nome || foto) {
+          const updateData: { [key: string]: any } = {};
+          if (nome) updateData.nomeVPJS = nome;
+          if (foto) updateData.fotoVPJS = foto;
+          
+          await update(animalRef, updateData);
+          console.log(`🔥 Nome/foto salvos em animaisVPJS/${codigoTrimmed}:`, updateData);
         }
       } catch (error) {
         if (error instanceof Error) {
@@ -192,39 +202,33 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
         }
         throw new Error('Erro ao verificar animal');
       }
-    } else {
-      // Modo demo - adicionar localmente
-      const newAnimal: TrackedAnimalVPJS = {
-        codigoVPJS: codigoTrimmed,
-        nomeVPJS: nome || `Animal ${codigoTrimmed}`,
-        fotoVPJS: foto,
-        location: null,
-        loading: false,
-        error: null,
-      };
-      setTrackedAnimals(prev => [...prev, newAnimal]);
     }
-  }, [trackedAnimals, userVPJS]);
+
+    // Adicionar código à lista
+    setAnimalCodes(prev => [...prev, codigoTrimmed]);
+    
+    // Adicionar animal inicial
+    setTrackedAnimals(prev => [...prev, {
+      codigoVPJS: codigoTrimmed,
+      nomeVPJS: nome || `Animal ${codigoTrimmed}`,
+      fotoVPJS: foto,
+      location: null,
+      loading: true,
+      error: null,
+    }]);
+  }, [animalCodes]);
 
   const removeAnimal = useCallback(async (codigo: string) => {
-    if (isFirebaseConfigured && database && userVPJS) {
-      try {
-        const usuarioAnimalRef = ref(database, `usuarios/${userVPJS.uidVPJS}/animaisVPJS/${codigo}`);
-        await remove(usuarioAnimalRef);
-        console.log(`🔥 Animal ${codigo} removido do Firebase`);
-      } catch (error) {
-        console.error('Erro ao remover animal:', error);
-      }
-    } else {
-      setTrackedAnimals(prev => prev.filter(a => a.codigoVPJS !== codigo));
-    }
-  }, [userVPJS]);
+    setAnimalCodes(prev => prev.filter(c => c !== codigo));
+    setTrackedAnimals(prev => prev.filter(a => a.codigoVPJS !== codigo));
+  }, []);
 
   const updateAnimal = useCallback(async (codigo: string, data: { nomeVPJS?: string; fotoVPJS?: string }) => {
-    if (isFirebaseConfigured && database && userVPJS) {
+    // Atualizar no Firebase
+    if (isFirebaseConfigured && database) {
       try {
-        const usuarioAnimalRef = ref(database, `usuarios/${userVPJS.uidVPJS}/animaisVPJS/${codigo}`);
-        await update(usuarioAnimalRef, {
+        const animalRef = ref(database, `animaisVPJS/${codigo}`);
+        await update(animalRef, {
           ...data,
           atualizadoEmVPJS: Date.now(),
         });
@@ -233,22 +237,23 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
         console.error('Erro ao atualizar animal:', error);
         throw error;
       }
-    } else {
-      setTrackedAnimals(prev => prev.map(a => 
-        a.codigoVPJS === codigo 
-          ? { ...a, ...data }
-          : a
-      ));
     }
-  }, [userVPJS]);
+    
+    // Atualizar localmente também
+    setTrackedAnimals(prev => prev.map(a => 
+      a.codigoVPJS === codigo 
+        ? { ...a, ...data }
+        : a
+    ));
+  }, []);
 
   const getAnimalByCode = useCallback((codigo: string) => {
     return trackedAnimals.find(a => a.codigoVPJS === codigo);
   }, [trackedAnimals]);
 
   const isTracking = useCallback((codigo: string) => {
-    return trackedAnimals.some(a => a.codigoVPJS === codigo);
-  }, [trackedAnimals]);
+    return animalCodes.includes(codigo);
+  }, [animalCodes]);
 
   const value = useMemo(() => ({
     trackedAnimals,
