@@ -908,10 +908,15 @@ export default function Home() {
                           <span className="text-xs text-red-500 mr-2">{animal.error}</span>
                         )}
                         {animal.location && (
-                          <span className="text-xs text-green-600 flex items-center gap-1 mr-2">
-                            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                            Online
-                          </span>
+                          <div className="flex flex-col items-end mr-2">
+                            <span className="text-xs text-green-600 flex items-center gap-1">
+                              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                              Online
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(animal.location.timestampVPJS).toLocaleString('pt-BR')}
+                            </span>
+                          </div>
                         )}
                         <Button
                           variant="ghost"
@@ -1021,8 +1026,8 @@ export default function Home() {
               <Button variant="outline" className="flex-1" onClick={() => setEditAnimalDialogOpen(false)}>Cancelar</Button>
               <Button className="flex-1" onClick={() => {
                 updateAnimal(editAnimalCodigo, {
-                  nome: editAnimalNome.trim() || `Animal ${editAnimalCodigo}`,
-                  foto: editAnimalFoto || undefined,
+                  nomeVPJS: editAnimalNome.trim() || `Animal ${editAnimalCodigo}`,
+                  fotoVPJS: editAnimalFoto || undefined,
                 });
                 setEditAnimalDialogOpen(false);
               }}>Salvar</Button>

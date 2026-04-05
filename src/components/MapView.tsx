@@ -500,6 +500,7 @@ function MultiPolygonLayer({
 function AnimalMarkers({ animals }: { animals: TrackedAnimalVPJS[] }) {
   const markersRef = useRef<{ [key: string]: L.Marker }>({});
   const map = useMap();
+  const prevTimestampsRef = useRef<{ [key: string]: number }>({});
   
   useEffect(() => {
     // Remove markers for animals that no longer exist
@@ -507,6 +508,7 @@ function AnimalMarkers({ animals }: { animals: TrackedAnimalVPJS[] }) {
       if (!animals.find(a => a.codigoVPJS === codigo)) {
         markersRef.current[codigo].remove();
         delete markersRef.current[codigo];
+        delete prevTimestampsRef.current[codigo];
       }
     });
     
@@ -514,10 +516,33 @@ function AnimalMarkers({ animals }: { animals: TrackedAnimalVPJS[] }) {
     animals.forEach((animal) => {
       if (animal.location && !animal.loading && !animal.error) {
         const existingMarker = markersRef.current[animal.codigoVPJS];
+        const prevTimestamp = prevTimestampsRef.current[animal.codigoVPJS];
+        const currentTimestamp = animal.location.timestampVPJS;
+        
+        // Check if timestamp changed
+        const timestampChanged = prevTimestamp !== undefined && prevTimestamp !== currentTimestamp;
         
         if (existingMarker) {
           // Update position
           existingMarker.setLatLng([animal.location.latitudeVPJS, animal.location.longitudeVPJS]);
+          
+          // Update popup content if timestamp changed or always update to be safe
+          existingMarker.setPopupContent(`
+            <div style="text-align: center; min-width: 150px;">
+              <strong style="font-size: 14px;">${animal.nomeVPJS}</strong>
+              <br/>
+              <span style="font-size: 12px; color: #666;">Código: ${animal.codigoVPJS}</span>
+              <br/>
+              <span style="font-size: 11px; color: #999;">
+                Atualizado: ${new Date(animal.location.timestampVPJS).toLocaleString('pt-BR')}
+              </span>
+            </div>
+          `);
+          
+          // If timestamp changed, log it
+          if (timestampChanged) {
+            console.log(`🔥 Animal ${animal.codigoVPJS} atualizado - Novo timestamp: ${new Date(currentTimestamp).toLocaleString('pt-BR')}`);
+          }
         } else {
           // Create new marker
           const marker = L.marker([animal.location.latitudeVPJS, animal.location.longitudeVPJS], {
@@ -539,6 +564,9 @@ function AnimalMarkers({ animals }: { animals: TrackedAnimalVPJS[] }) {
           
           markersRef.current[animal.codigoVPJS] = marker;
         }
+        
+        // Update stored timestamp
+        prevTimestampsRef.current[animal.codigoVPJS] = currentTimestamp;
       }
     });
   }, [animals, map]);

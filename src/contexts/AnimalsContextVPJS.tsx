@@ -25,7 +25,7 @@ interface AnimalsContextTypeVPJS {
   trackedAnimals: TrackedAnimalVPJS[];
   addAnimal: (codigo: string, nome?: string, foto?: string) => Promise<void>;
   removeAnimal: (codigo: string) => void;
-  updateAnimal: (codigo: string, data: { nome?: string; foto?: string }) => void;
+  updateAnimal: (codigo: string, data: { nomeVPJS?: string; fotoVPJS?: string }) => void;
   getAnimalByCode: (codigo: string) => TrackedAnimalVPJS | undefined;
   isTracking: (codigo: string) => boolean;
 }
@@ -183,7 +183,7 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     setTrackedAnimals(prev => prev.filter(a => a.codigoVPJS !== codigo));
   }, []);
 
-  const updateAnimal = useCallback((codigo: string, data: { nome?: string; foto?: string }) => {
+  const updateAnimal = useCallback((codigo: string, data: { nomeVPJS?: string; fotoVPJS?: string }) => {
     setTrackedAnimals(prev => prev.map(a => 
       a.codigoVPJS === codigo 
         ? { ...a, ...data }
