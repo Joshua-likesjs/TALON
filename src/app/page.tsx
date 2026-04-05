@@ -610,29 +610,96 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
+            {/* Botão Verificar */}
+            <Button
+              onClick={handleCheckPosition}
+              disabled={polygons.every(p => p.vertices.length < 3)}
+              size="sm"
+              variant="outline"
+              className="h-8 px-2 sm:px-3"
+              title="Verificar se estou dentro de uma área"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:mr-1">
+                <circle cx="12" cy="12" r="10" />
+                <circle cx="12" cy="12" r="1" />
+              </svg>
+              <span className="hidden sm:inline">Verificar</span>
+            </Button>
+            
+            {/* Botão Limpar */}
+            <Button
+              onClick={handleClearPoints}
+              variant="destructive"
+              size="sm"
+              className="h-8 px-2 sm:px-3"
+              title="Limpar pontos do polígono selecionado"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:mr-1">
+                <path d="M3 6h18" />
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+              </svg>
+              <span className="hidden sm:inline">Limpar</span>
+            </Button>
+            
+            {/* Botão Simular Histórico */}
+            {trackedAnimals.length > 0 && trackedAnimals[0].location && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2 sm:px-3"
+                title="Simular histórico de movimento"
+                onClick={async () => {
+                  const animal = trackedAnimals[0];
+                  try {
+                    const response = await fetch('/api/simulate-history', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        codigo: animal.codigoVPJS,
+                        baseLat: animal.location!.latitudeVPJS,
+                        baseLng: animal.location!.longitudeVPJS,
+                        numPoints: 25,
+                      }),
+                    });
+                    const result = await response.json();
+                    console.log('🔥 Simulação:', result);
+                    alert(result.message || 'Histórico simulado!');
+                  } catch (error) {
+                    console.error('Erro ao simular:', error);
+                    alert('Erro ao simular histórico');
+                  }
+                }}
+              >
+                🧪
+                <span className="hidden sm:inline ml-1">Simular</span>
+              </Button>
+            )}
+            
+            {/* Badges de status */}
             {userPosition && (
-              <Badge variant="outline" className="hidden sm:flex">
+              <Badge variant="outline" className="hidden md:flex">
                 <span className="w-2 h-2 bg-primary rounded-full mr-2 animate-pulse" />
                 GPS
               </Badge>
             )}
             {timerVPJS?.isActiveVPJS && (
-              <Badge variant="outline" className="hidden sm:flex bg-primary/10">
+              <Badge variant="outline" className="hidden md:flex bg-primary/10">
                 <span className="w-2 h-2 bg-primary rounded-full mr-2 animate-pulse" />
                 {formatTime(timeRemaining)}
               </Badge>
             )}
             {trackedAnimals.length > 0 && (
-              <Badge variant="outline" className="hidden sm:flex bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-400 dark:border-orange-800">
+              <Badge variant="outline" className="hidden md:flex bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-400 dark:border-orange-800">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
                   <path d="M12 2a3 3 0 0 0-3 3c0 1.6.8 2.4 1.5 3.5C11.3 9.6 12 10.8 12 12c0-1.2.7-2.4 1.5-3.5C14.2 7.4 15 6.6 15 5a3 3 0 0 0-3-3Z" />
                   <path d="M12 12c0 1.2-.7 2.4-1.5 3.5-.7 1.1-1.5 1.9-1.5 3.5a3 3 0 0 0 6 0c0-1.6-.8-2.4-1.5-3.5-.8-1.1-1.5-2.3-1.5-3.5Z" />
                 </svg>
-                {trackedAnimals.length} animal{trackedAnimals.length !== 1 ? 's' : ''}
+                {trackedAnimals.length}
               </Badge>
             )}
-            <Badge variant="secondary">{polygons.length} polígono{polygons.length !== 1 ? 's' : ''}</Badge>
+            <Badge variant="secondary" className="hidden sm:flex">{polygons.length} polígono{polygons.length !== 1 ? 's' : ''}</Badge>
             <Button variant="ghost" size="icon" className="h-8 w-8 hidden sm:flex" onClick={handleLogoutVPJS} title="Sair">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
