@@ -63,16 +63,10 @@ const AuthContextVPJS = createContext<AuthContextTypeVPJS | undefined>(undefined
 const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope('email');
 googleProvider.addScope('profile');
-googleProvider.setCustomParameters({
-  prompt: 'select_account'
-});
 
 const facebookProvider = new FacebookAuthProvider();
 facebookProvider.addScope('email');
 facebookProvider.addScope('public_profile');
-facebookProvider.setCustomParameters({
-  display: 'popup'
-});
 
 // Local storage keys for demo mode
 const LOCAL_USER_KEY = 'geofence_user_vpjs';
