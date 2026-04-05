@@ -307,7 +307,7 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
           </div>
 
           {/* Map */}
-          <div className="flex-1 min-h-[400px] h-[400px] rounded-lg overflow-hidden border border-border">
+          <div className="rounded-lg overflow-hidden border border-border" style={{ height: '400px' }}>
             {loading ? (
               <div className="w-full h-full flex items-center justify-center bg-muted">
                 <div className="flex flex-col items-center gap-2">

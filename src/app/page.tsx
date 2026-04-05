@@ -665,7 +665,13 @@ export default function Home() {
                     });
                     const result = await response.json();
                     console.log('🔥 Simulação:', result);
-                    alert(result.message || 'Histórico simulado!');
+                    if (result.success) {
+                      // Abrir o dialog de histórico após simulação
+                      setHistoryAnimal(animal);
+                      setHistoryDialogOpen(true);
+                    } else {
+                      alert(result.error || 'Erro ao simular histórico');
+                    }
                   } catch (error) {
                     console.error('Erro ao simular:', error);
                     alert('Erro ao simular histórico');
