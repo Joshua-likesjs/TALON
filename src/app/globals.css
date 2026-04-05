@@ -45,36 +45,36 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.45 0.06 95);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.45 0.06 95);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.45 0.06 95);
+  --background: oklch(0.96 0.01 85);
+  --foreground: oklch(0.35 0.05 95);
+  --card: oklch(0.98 0.005 85);
+  --card-foreground: oklch(0.35 0.05 95);
+  --popover: oklch(0.98 0.005 85);
+  --popover-foreground: oklch(0.35 0.05 95);
   --primary: oklch(0.50 0.08 95);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.95 0.02 95);
-  --secondary-foreground: oklch(0.50 0.08 95);
-  --muted: oklch(0.95 0.02 95);
+  --primary-foreground: oklch(0.98 0.005 85);
+  --secondary: oklch(0.92 0.015 85);
+  --secondary-foreground: oklch(0.40 0.05 95);
+  --muted: oklch(0.92 0.015 85);
   --muted-foreground: oklch(0.50 0.04 95);
-  --accent: oklch(0.92 0.04 95);
-  --accent-foreground: oklch(0.50 0.08 95);
+  --accent: oklch(0.90 0.02 85);
+  --accent-foreground: oklch(0.40 0.05 95);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.90 0.03 95);
-  --input: oklch(0.90 0.03 95);
+  --border: oklch(0.88 0.015 85);
+  --input: oklch(0.88 0.015 85);
   --ring: oklch(0.50 0.08 95);
   --chart-1: oklch(0.50 0.08 95);
   --chart-2: oklch(0.60 0.10 95);
   --chart-3: oklch(0.55 0.06 95);
   --chart-4: oklch(0.65 0.08 95);
   --chart-5: oklch(0.70 0.06 95);
-  --sidebar: oklch(0.98 0.02 95);
-  --sidebar-foreground: oklch(0.50 0.06 95);
+  --sidebar: oklch(0.97 0.008 85);
+  --sidebar-foreground: oklch(0.40 0.05 95);
   --sidebar-primary: oklch(0.50 0.08 95);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.95 0.02 95);
-  --sidebar-accent-foreground: oklch(0.50 0.08 95);
-  --sidebar-border: oklch(0.90 0.03 95);
+  --sidebar-primary-foreground: oklch(0.98 0.005 85);
+  --sidebar-accent: oklch(0.92 0.015 85);
+  --sidebar-accent-foreground: oklch(0.40 0.05 95);
+  --sidebar-border: oklch(0.88 0.015 85);
   --sidebar-ring: oklch(0.50 0.08 95);
 }
 
@@ -206,8 +206,8 @@
   width: 3rem;
   height: 3rem;
   border-radius: 9999px;
-  background-color: white;
-  border: 1px solid #e5e7eb;
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   display: flex;
   align-items: center;
@@ -216,7 +216,7 @@
 }
 
 .map-center-button:hover {
-  background-color: #f9fafb;
+  background-color: hsl(var(--accent));
   transform: scale(1.05);
 }
 

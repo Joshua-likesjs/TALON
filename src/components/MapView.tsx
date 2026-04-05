@@ -537,7 +537,7 @@ export default function MapView({
       <button
         onClick={handleCenterOnUser}
         disabled={!userPosition}
-        className={`absolute top-4 right-4 z-[1000] h-12 w-12 rounded-full shadow-lg bg-white hover:bg-gray-100 text-primary border border-gray-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ${isCentering ? 'scale-110' : 'scale-100'}`}
+        className={`absolute top-4 right-4 z-[1000] h-12 w-12 rounded-full shadow-lg bg-card hover:bg-accent text-primary border border-border flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ${isCentering ? 'scale-110' : 'scale-100'}`}
       >
         {isCentering && (
           <span className="absolute inset-0 rounded-full bg-primary/40 animate-ping opacity-30" />
@@ -591,7 +591,7 @@ export default function MapView({
                     e.stopPropagation();
                     onRenamePolygon();
                   }}
-                  className="h-8 w-8 rounded-full bg-white shadow flex items-center justify-center hover:bg-gray-100"
+                  className="h-8 w-8 rounded-full bg-card shadow flex items-center justify-center hover:bg-accent"
                   title="Renomear"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
