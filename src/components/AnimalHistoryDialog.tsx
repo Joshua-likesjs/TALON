@@ -414,12 +414,46 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
             </div>
           )}
 
-          {/* Points count */}
-          <div className="text-xs text-muted-foreground text-center">
-            {filteredHistory.length === 1 ? (
-              <span>📍 Posição atual do animal</span>
-            ) : (
-              <span>{filteredHistory.length} pontos de movimento encontrados</span>
+          {/* Points count and simulate button */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="text-xs text-muted-foreground text-center">
+              {filteredHistory.length === 1 ? (
+                <span>📍 Posição atual do animal</span>
+              ) : (
+                <span>{filteredHistory.length} pontos de movimento encontrados</span>
+              )}
+            </div>
+            
+            {/* Botão para simular histórico (apenas para testes) */}
+            {animal.location && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/simulate-history', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        codigo: animal.codigoVPJS,
+                        baseLat: animal.location!.latitudeVPJS,
+                        baseLng: animal.location!.longitudeVPJS,
+                        numPoints: 25,
+                      }),
+                    });
+                    const result = await response.json();
+                    console.log('🔥 Simulação:', result);
+                    alert(result.message || 'Histórico simulado!');
+                    // Recarregar histórico
+                    loadHistory();
+                  } catch (error) {
+                    console.error('Erro ao simular:', error);
+                    alert('Erro ao simular histórico');
+                  }
+                }}
+              >
+                🧪 Simular Histórico (25 pontos)
+              </Button>
             )}
           </div>
         </div>
