@@ -103,6 +103,8 @@ function LocationMarker({
 
     const handleLocationFound = (e: { latlng: { lat: number; lng: number } }) => {
       onLocationFound(e.latlng.lat, e.latlng.lng);
+      // Centraliza o mapa na localização do usuário com zoom 17
+      map.flyTo([e.latlng.lat, e.latlng.lng], 17, { duration: 1.5 });
     };
 
     const handleLocationError = () => {
