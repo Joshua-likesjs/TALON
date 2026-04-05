@@ -228,10 +228,7 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     if (isFirebaseConfigured && database) {
       try {
         const animalRef = ref(database, `animaisVPJS/${codigo}`);
-        await update(animalRef, {
-          ...data,
-          atualizadoEmVPJS: Date.now(),
-        });
+        await update(animalRef, data);
         console.log(`🔥 Animal ${codigo} atualizado no Firebase:`, data);
       } catch (error) {
         console.error('Erro ao atualizar animal:', error);
