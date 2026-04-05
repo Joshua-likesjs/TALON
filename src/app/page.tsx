@@ -579,7 +579,7 @@ export default function Home() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
+            <div className="w-8 h-8 flex items-center justify-center overflow-hidden">
               <img src="/logo-icon.png" alt="TALON" className="w-full h-full object-contain p-1" />
             </div>
             <div>
