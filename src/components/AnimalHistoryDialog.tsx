@@ -508,7 +508,7 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
                 {selectedPoint && (
                   <Marker
                     position={[selectedPoint.latitude, selectedPoint.longitude]}
-                    icon={createPositionIcon(animal?.fotoVPJS, 32)}
+                    icon={createPositionIcon(animal?.fotoVPJS, 36)}
                   />
                 )}
                 
