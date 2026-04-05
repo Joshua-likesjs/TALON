@@ -709,7 +709,7 @@ export default function MapView({
   return (
     <div className="relative w-full h-full">
       {isLoading && (
-        <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div className="absolute inset-0 z-1000 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-4">
             <img src="/logo-icon.png" alt="TALON" className="w-12 h-12 animate-pulse" />
             <p className="text-muted-foreground text-sm">Obtendo localização...</p>
@@ -721,7 +721,7 @@ export default function MapView({
       <button
         onClick={handleCenterOnUser}
         disabled={!userPosition}
-        className={`absolute top-4 right-4 z-[1000] h-12 w-12 rounded-full shadow-lg bg-card hover:bg-accent text-primary border border-border flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ${isCentering ? 'scale-110' : 'scale-100'}`}
+        className={`absolute top-4 right-4 z-1000 h-12 w-12 rounded-full shadow-lg bg-card hover:bg-accent text-primary border border-border flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ${isCentering ? 'scale-110' : 'scale-100'}`}
       >
         {isCentering && (
           <span className="absolute inset-0 rounded-full bg-primary/40 animate-ping opacity-30" />
@@ -736,7 +736,7 @@ export default function MapView({
       </button>
 
       {/* Polygon selector - abaixo do botão de centralizar */}
-      <div className="absolute top-20 right-4 z-[1000] flex flex-col gap-2 max-h-[calc(100vh-200px)] overflow-y-auto">
+      <div className="absolute top-20 right-4 z-1000 flex flex-col gap-2 max-h-[calc(100vh-200px)] overflow-y-auto">
         {/* Botão de criar novo polígono */}
         <button
           onClick={onCreatePolygon}

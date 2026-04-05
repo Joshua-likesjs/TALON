@@ -104,7 +104,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   return (
     <div className="min-h-screen w-full flex flex-col lg:flex-row">
       {/* Left side - Branding */}
-      <div className="flex-1 bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 flex items-center justify-center p-8 lg:p-16">
+      <div className="flex-1 bg-linear-to-br from-emerald-600 via-emerald-700 to-teal-800 flex items-center justify-center p-8 lg:p-16">
         <div className="max-w-md text-center lg:text-left">
           {/* Logo */}
           <div className="w-20 h-20 lg:w-24 lg:h-24 mx-auto lg:mx-0 mb-6 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
