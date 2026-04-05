@@ -541,11 +541,14 @@ function AnimalMarkers({ animals }: { animals: TrackedAnimalVPJS[] }) {
         }
       }
     });
-    
+  }, [animals, map]);
+  
+  // Cleanup apenas quando o componente desmontar
+  useEffect(() => {
     return () => {
       Object.values(markersRef.current).forEach(m => m.remove());
     };
-  }, [animals, map]);
+  }, []);
   
   return null;
 }
