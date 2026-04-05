@@ -113,7 +113,7 @@ const createAnimalHistoryIcon = (photoUrl?: string, size: number = 32) => {
   });
 };
 
-// Create marker icon for selected time position (animal marker)
+// Create marker icon for selected time position (blue to differentiate from current position)
 const createPositionIcon = (photoUrl?: string) => {
   if (photoUrl) {
     return L.divIcon({
@@ -123,7 +123,7 @@ const createPositionIcon = (photoUrl?: string) => {
           width: 28px;
           height: 28px;
           border-radius: 50%;
-          border: 3px solid #f97316;
+          border: 3px solid #3b82f6;
           box-shadow: 0 2px 8px rgba(0,0,0,0.4);
           overflow: hidden;
         ">
@@ -143,14 +143,14 @@ const createPositionIcon = (photoUrl?: string) => {
     });
   }
   
-  // Pin laranja do animal (não azul do usuário)
+  // Marcador azul para indicar posição selecionada no histórico
   return L.divIcon({
     className: 'position-marker',
     html: `
       <div style="
         width: 20px;
         height: 20px;
-        background: #f97316;
+        background: #3b82f6;
         border: 3px solid white;
         border-radius: 50%;
         box-shadow: 0 2px 8px rgba(0,0,0,0.4);
@@ -470,11 +470,19 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
                   />
                 )}
 
-                {/* Selected position marker */}
+                {/* Selected position marker (ponto histórico selecionado pelo slider) */}
                 {selectedPoint && (
                   <Marker
                     position={[selectedPoint.latitude, selectedPoint.longitude]}
                     icon={createPositionIcon(animal?.fotoVPJS)}
+                  />
+                )}
+                
+                {/* Marcador da posição ATUAL do animal (referência) */}
+                {animal?.location && filteredHistory.length > 1 && (
+                  <Marker
+                    position={[animal.location.latitudeVPJS, animal.location.longitudeVPJS]}
+                    icon={createAnimalHistoryIcon(animal?.fotoVPJS, 36)}
                   />
                 )}
                 
