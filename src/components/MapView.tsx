@@ -57,7 +57,7 @@ const primaryIcon = createIcon("#585c2b", 24);
 
 // Create animal icon (different from user marker)
 const createAnimalIcon = (size: number = 32, photoUrl?: string) => {
-  // Se tem foto, criar ícone com a foto
+  // Se tem foto, criar ícone com a foto preenchendo todo o pin
   if (photoUrl) {
     return L.divIcon({
       className: "animal-marker",
@@ -74,25 +74,21 @@ const createAnimalIcon = (size: number = 32, photoUrl?: string) => {
           <div style="
             width: ${size}px;
             height: ${size}px;
-            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
             border-radius: 50% 50% 50% 0;
             transform: rotate(-45deg);
             border: 3px solid white;
             box-shadow: 0 2px 10px rgba(0,0,0,0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
             overflow: hidden;
           ">
             <img 
               src="${photoUrl}" 
               alt="Animal" 
               style="
-                width: ${size - 6}px;
-                height: ${size - 6}px;
-                border-radius: 50%;
+                width: 100%;
+                height: 100%;
                 object-fit: cover;
-                transform: rotate(45deg);
+                transform: rotate(45deg) scale(1.5);
+                transform-origin: center;
               "
             />
           </div>
