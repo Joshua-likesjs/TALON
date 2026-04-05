@@ -643,46 +643,6 @@ export default function Home() {
               <span className="hidden sm:inline">Limpar</span>
             </Button>
             
-            {/* Botão Simular Histórico */}
-            {trackedAnimals.length > 0 && trackedAnimals[0].location && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-2 sm:px-3"
-                title="Simular histórico de movimento"
-                onClick={async () => {
-                  const animal = trackedAnimals[0];
-                  try {
-                    const response = await fetch('/api/simulate-history', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        codigo: animal.codigoVPJS,
-                        baseLat: animal.location!.latitudeVPJS,
-                        baseLng: animal.location!.longitudeVPJS,
-                        numPoints: 25,
-                      }),
-                    });
-                    const result = await response.json();
-                    console.log('🔥 Simulação:', result);
-                    if (result.success) {
-                      // Abrir o dialog de histórico após simulação
-                      setHistoryAnimal(animal);
-                      setHistoryDialogOpen(true);
-                    } else {
-                      alert(result.error || 'Erro ao simular histórico');
-                    }
-                  } catch (error) {
-                    console.error('Erro ao simular:', error);
-                    alert('Erro ao simular histórico');
-                  }
-                }}
-              >
-                🧪
-                <span className="hidden sm:inline ml-1">Simular</span>
-              </Button>
-            )}
-            
             {/* Badges de status */}
             {userPosition && (
               <Badge variant="outline" className="hidden md:flex">
