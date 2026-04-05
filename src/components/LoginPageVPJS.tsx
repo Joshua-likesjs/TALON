@@ -130,26 +130,11 @@ export function LoginPageVPJS() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="28"
-                height="28"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-primary"
-              >
-                <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
-                <line x1="9" x2="9" y1="3" y2="18" />
-                <line x1="15" x2="15" y1="6" y2="21" />
-              </svg>
+            <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden">
+              <img src="/logo.png" alt="TALON" className="w-full h-full object-contain" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">GeoFence App</CardTitle>
+          <CardTitle className="text-2xl font-bold">TALON</CardTitle>
           <CardDescription>
             Faça login ou crie uma conta para continuar
           </CardDescription>
@@ -380,7 +365,7 @@ export function LoginPageVPJS() {
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
-            GeoFence App © {new Date().getFullYear()}
+            TALON © {new Date().getFullYear()}
           </p>
         </CardFooter>
       </Card>

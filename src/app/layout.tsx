@@ -16,16 +16,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "T.A.L.O.N.",
-  description: "Aplicativo de mapas interativo com funcionalidade de Geofencing manual. Desenhe áreas no mapa e verifique sua posição das coleiras.",
-  keywords: ["T.A.L.O.N.", "Mapas", "OpenStreetMap", "Next.js", "React", "Localização"],
-  authors: [{ name: "GeoFence Team" }],
+  title: "TALON",
+  description: "Sistema de geofencing para monitoramento de áreas. Crie cercas virtuais e verifique posições em tempo real.",
+  keywords: ["TALON", "Geofencing", "Mapas", "OpenStreetMap", "Next.js", "React", "Localização"],
+  authors: [{ name: "TALON Team" }],
   icons: {
-    icon: "",
+    icon: "/logo.png",
   },
   openGraph: {
-    title: "T.A.L.O.N.",
-    description: "Aplicativo de mapas interativo com geofencing",
+    title: "TALON",
+    description: "Sistema de geofencing para monitoramento de áreas",
     type: "website",
   },
 };
