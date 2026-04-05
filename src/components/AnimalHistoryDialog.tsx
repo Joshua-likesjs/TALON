@@ -325,12 +325,14 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
                 </span>
               </div>
             ) : (
-              <MapContainer
-                center={[filteredHistory[0]?.latitude || 0, filteredHistory[0]?.longitude || 0]}
-                zoom={15}
-                style={{ height: '100%', width: '100%' }}
-                className="leaflet-container"
-              >
+              <>
+                {console.log(`🔥 RENDER MAPA: loading=${loading}, filteredHistory.length=${filteredHistory.length}, lat=${filteredHistory[0]?.latitude}, lng=${filteredHistory[0]?.longitude}`)}
+                <MapContainer
+                  center={[filteredHistory[0]?.latitude || 0, filteredHistory[0]?.longitude || 0]}
+                  zoom={15}
+                  style={{ height: '100%', width: '100%' }}
+                  className="leaflet-container"
+                >
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -385,6 +387,7 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
                   />
                 )}
               </MapContainer>
+              </>
             )}
           </div>
 
