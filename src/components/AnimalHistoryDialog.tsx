@@ -9,7 +9,6 @@ import {
   useMap,
 } from 'react-leaflet';
 import L from 'leaflet';
-import 'leaflet.heat';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -53,33 +52,44 @@ const createPositionIcon = () => {
 // Heatmap layer component
 function HeatmapLayer({ points }: { points: [number, number, number][] }) {
   const map = useMap();
-  const heatLayerRef = useRef<L.HeatLayer | null>(null);
+  const heatLayerRef = useRef<L.Layer | null>(null);
+  const heatLibLoaded = useRef(false);
 
   useEffect(() => {
     if (!map || points.length === 0) return;
 
-    // Remove existing layer
-    if (heatLayerRef.current) {
-      map.removeLayer(heatLayerRef.current);
-    }
+    // Dynamically import leaflet.heat
+    const loadHeatLayer = async () => {
+      if (!heatLibLoaded.current) {
+        await import('leaflet.heat');
+        heatLibLoaded.current = true;
+      }
 
-    // Create new heat layer
-    // @ts-ignore - leaflet.heat types
-    heatLayerRef.current = L.heatLayer(points, {
-      radius: 25,
-      blur: 15,
-      maxZoom: 17,
-      max: 1.0,
-      gradient: {
-        0.0: 'blue',
-        0.25: 'cyan',
-        0.5: 'lime',
-        0.75: 'yellow',
-        1.0: 'red',
-      },
-    });
+      // Remove existing layer
+      if (heatLayerRef.current) {
+        map.removeLayer(heatLayerRef.current);
+      }
 
-    heatLayerRef.current.addTo(map);
+      // Create new heat layer
+      // @ts-ignore - leaflet.heat types
+      heatLayerRef.current = L.heatLayer(points, {
+        radius: 25,
+        blur: 15,
+        maxZoom: 17,
+        max: 1.0,
+        gradient: {
+          0.0: 'blue',
+          0.25: 'cyan',
+          0.5: 'lime',
+          0.75: 'yellow',
+          1.0: 'red',
+        },
+      });
+
+      heatLayerRef.current.addTo(map);
+    };
+
+    loadHeatLayer();
 
     return () => {
       if (heatLayerRef.current) {
