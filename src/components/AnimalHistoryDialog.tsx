@@ -137,8 +137,21 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
     
     setLoading(true);
     try {
+      console.log(`🔥 Carregando histórico para ${animal.codigoVPJS}...`);
       const points = await loadAnimalHistory(animal.codigoVPJS, 2000);
-      setHistory(points);
+      console.log(`🔥 Histórico carregado: ${points.length} pontos`);
+      
+      // Se não há histórico mas temos localização atual, usar como ponto único
+      if (points.length === 0 && animal.location) {
+        console.log(`🔥 Usando localização atual como ponto único`);
+        setHistory([{
+          latitude: animal.location.latitudeVPJS,
+          longitude: animal.location.longitudeVPJS,
+          timestamp: animal.location.timestampVPJS,
+        }]);
+      } else {
+        setHistory(points);
+      }
     } catch (error) {
       console.error('Erro ao carregar histórico:', error);
       setHistory([]);
@@ -297,13 +310,17 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
                 </div>
               </div>
             ) : filteredHistory.length === 0 ? (
-              <div className="w-full h-full flex items-center justify-center bg-muted">
-                <span className="text-muted-foreground">Nenhum dado encontrado para este período</span>
+              <div className="w-full h-full flex flex-col items-center justify-center bg-muted gap-3 p-4">
+                <span className="text-muted-foreground text-center">Nenhum dado de movimento encontrado</span>
+                <span className="text-xs text-muted-foreground text-center max-w-sm">
+                  O histórico de movimentação é registrado automaticamente quando a localização do animal é atualizada.
+                  Aguarde novas atualizações de localização para ver o rastro.
+                </span>
               </div>
             ) : (
               <MapContainer
                 center={[filteredHistory[0]?.latitude || 0, filteredHistory[0]?.longitude || 0]}
-                zoom={13}
+                zoom={15}
                 style={{ height: '100%', width: '100%' }}
                 className="leaflet-container"
               >
@@ -312,14 +329,14 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
 
-                <FitBounds points={filteredHistory} />
+                {filteredHistory.length > 1 && <FitBounds points={filteredHistory} />}
 
-                {/* Heatmap */}
-                {(viewMode === 'heatmap' || viewMode === 'ambos') && (
+                {/* Heatmap - only if more than 1 point */}
+                {(viewMode === 'heatmap' || viewMode === 'ambos') && filteredHistory.length > 1 && (
                   <HeatmapLayer points={heatmapPoints} />
                 )}
 
-                {/* Polyline (Rastro) */}
+                {/* Polyline (Rastro) - only if more than 1 point */}
                 {(viewMode === 'rastro' || viewMode === 'ambos') && polylinePoints.length > 1 && (
                   <Polyline
                     positions={polylinePoints}
@@ -336,6 +353,28 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
                   <Marker
                     position={[selectedPoint.latitude, selectedPoint.longitude]}
                     icon={createPositionIcon()}
+                  />
+                )}
+                
+                {/* Se só tem 1 ponto, mostrar um marcador especial */}
+                {filteredHistory.length === 1 && (
+                  <Marker
+                    position={[filteredHistory[0].latitude, filteredHistory[0].longitude]}
+                    icon={L.divIcon({
+                      className: 'single-point-marker',
+                      html: `
+                        <div style="
+                          width: 24px;
+                          height: 24px;
+                          background: #f97316;
+                          border: 3px solid white;
+                          border-radius: 50%;
+                          box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+                        "></div>
+                      `,
+                      iconSize: [24, 24],
+                      iconAnchor: [12, 12],
+                    })}
                   />
                 )}
               </MapContainer>
@@ -366,7 +405,11 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
 
           {/* Points count */}
           <div className="text-xs text-muted-foreground text-center">
-            {filteredHistory.length} pontos encontrados
+            {filteredHistory.length === 1 ? (
+              <span>📍 Posição atual do animal</span>
+            ) : (
+              <span>{filteredHistory.length} pontos de movimento encontrados</span>
+            )}
           </div>
         </div>
       </DialogContent>
