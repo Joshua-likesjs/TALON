@@ -4,6 +4,7 @@ import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProviderVPJS } from "@/contexts/AuthContextVPJS";
+import { AnimalsProviderVPJS } from "@/contexts/AnimalsContextVPJS";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,7 +42,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <AuthProviderVPJS>
-          {children}
+          <AnimalsProviderVPJS>
+            {children}
+          </AnimalsProviderVPJS>
         </AuthProviderVPJS>
         <Toaster />
       </body>

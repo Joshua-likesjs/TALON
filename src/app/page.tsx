@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { isPointInPolygon } from "geolib";
 import { useAuthVPJS } from "@/contexts/AuthContextVPJS";
+import { useAnimalsVPJS, TrackedAnimalVPJS } from "@/contexts/AnimalsContextVPJS";
 import { LoginPageVPJS } from "@/components/LoginPageVPJS";
 import { Point, LocalPolygon, POLYGON_COLORS } from "@/lib/types";
 
@@ -56,6 +57,7 @@ const timerOptions = [
 
 export default function Home() {
   const { userVPJS, loadingVPJS, signOutVPJS, savePolygonsVPJS, polygonsVPJS, saveTimerVPJS, timerVPJS } = useAuthVPJS();
+  const { trackedAnimals, addAnimal, removeAnimal, isTracking } = useAnimalsVPJS();
   
   // Estado local dos polígonos
   const [polygons, setPolygons] = useState<LocalPolygon[]>([]);
@@ -165,6 +167,9 @@ export default function Home() {
   // Timer state
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [animalCode, setAnimalCode] = useState("");
+  const [animalName, setAnimalName] = useState("");
+  const [animalError, setAnimalError] = useState<string | null>(null);
+  const [animalSuccess, setAnimalSuccess] = useState<string | null>(null);
   const [newPolygonName, setNewPolygonName] = useState("");
   const [renameValue, setRenameValue] = useState("");
 
@@ -601,6 +606,15 @@ export default function Home() {
                 {formatTime(timeRemaining)}
               </Badge>
             )}
+            {trackedAnimals.length > 0 && (
+              <Badge variant="outline" className="hidden sm:flex bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-400 dark:border-orange-800">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                  <path d="M12 2a3 3 0 0 0-3 3c0 1.6.8 2.4 1.5 3.5C11.3 9.6 12 10.8 12 12c0-1.2.7-2.4 1.5-3.5C14.2 7.4 15 6.6 15 5a3 3 0 0 0-3-3Z" />
+                  <path d="M12 12c0 1.2-.7 2.4-1.5 3.5-.7 1.1-1.5 1.9-1.5 3.5a3 3 0 0 0 6 0c0-1.6-.8-2.4-1.5-3.5-.8-1.1-1.5-2.3-1.5-3.5Z" />
+                </svg>
+                {trackedAnimals.length} animal{trackedAnimals.length !== 1 ? 's' : ''}
+              </Badge>
+            )}
             <Badge variant="secondary">{polygons.length} polígono{polygons.length !== 1 ? 's' : ''}</Badge>
             <Button variant="ghost" size="icon" className="h-8 w-8 hidden sm:flex" onClick={handleLogoutVPJS} title="Sair">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -636,6 +650,7 @@ export default function Home() {
               setRenameDialogOpen(true);
             }
           }}
+          trackedAnimals={trackedAnimals}
         />
       </div>
 
@@ -724,22 +739,147 @@ export default function Home() {
       </Dialog>
 
       {/* Animals Dialog */}
-      <Dialog open={animalsDialogOpen} onOpenChange={setAnimalsDialogOpen}>
+      <Dialog open={animalsDialogOpen} onOpenChange={(open) => {
+        setAnimalsDialogOpen(open);
+        if (!open) {
+          setAnimalCode("");
+          setAnimalName("");
+          setAnimalError(null);
+          setAnimalSuccess(null);
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Animais</DialogTitle>
-            <DialogDescription>Digite o código do animal</DialogDescription>
+            <DialogDescription>Adicione animais para rastrear no mapa</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Código</label>
-              <Input placeholder="Digite o código..." value={animalCode} onChange={(e) => setAnimalCode(e.target.value)} className="text-center text-lg" />
+            {/* Formulário para adicionar animal */}
+            <div className="space-y-3 p-3 bg-muted/50 rounded-lg border border-border">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Código do Animal</label>
+                <Input 
+                  placeholder="Ex: ANIMAL001" 
+                  value={animalCode} 
+                  onChange={(e) => {
+                    setAnimalCode(e.target.value);
+                    setAnimalError(null);
+                  }} 
+                  className="text-center" 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Nome (opcional)</label>
+                <Input 
+                  placeholder="Ex: Bessy" 
+                  value={animalName} 
+                  onChange={(e) => setAnimalName(e.target.value)} 
+                  className="text-center" 
+                />
+              </div>
+              
+              {/* Mensagens de erro/sucesso */}
+              {animalError && (
+                <p className="text-sm text-red-500 text-center">{animalError}</p>
+              )}
+              {animalSuccess && (
+                <p className="text-sm text-green-600 text-center">{animalSuccess}</p>
+              )}
+              
+              <Button 
+                className="w-full" 
+                onClick={async () => {
+                  if (!animalCode.trim()) {
+                    setAnimalError("Digite o código do animal");
+                    return;
+                  }
+                  
+                  if (isTracking(animalCode.trim())) {
+                    setAnimalError("Este animal já está sendo rastreado");
+                    return;
+                  }
+                  
+                  try {
+                    await addAnimal(animalCode.trim(), animalName.trim() || undefined);
+                    setAnimalSuccess(`Animal ${animalCode.trim()} adicionado!`);
+                    setAnimalCode("");
+                    setAnimalName("");
+                    setTimeout(() => setAnimalSuccess(null), 3000);
+                  } catch (error) {
+                    if (error instanceof Error) {
+                      setAnimalError(error.message);
+                    } else {
+                      setAnimalError("Erro ao adicionar animal");
+                    }
+                  }
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                  <line x1="12" x2="12" y1="5" y2="19" />
+                  <line x1="5" x2="19" y1="12" y2="12" />
+                </svg>
+                Adicionar Animal
+              </Button>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setAnimalCode("")}>Limpar</Button>
-              <Button className="flex-1" onClick={() => setAnimalCode("")}>Confirmar</Button>
-            </div>
-            <p className="text-xs text-muted-foreground text-center">Funcionalidade em desenvolvimento</p>
+            
+            {/* Lista de animais rastreados */}
+            {trackedAnimals.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Animais Rastreados</label>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {trackedAnimals.map((animal) => (
+                    <div 
+                      key={animal.codigoVPJS}
+                      className="flex items-center justify-between p-3 bg-card rounded-lg border border-border"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 2a3 3 0 0 0-3 3c0 1.6.8 2.4 1.5 3.5C11.3 9.6 12 10.8 12 12c0-1.2.7-2.4 1.5-3.5C14.2 7.4 15 6.6 15 5a3 3 0 0 0-3-3Z" />
+                            <path d="M12 12c0 1.2-.7 2.4-1.5 3.5-.7 1.1-1.5 1.9-1.5 3.5a3 3 0 0 0 6 0c0-1.6-.8-2.4-1.5-3.5-.8-1.1-1.5-2.3-1.5-3.5Z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{animal.nomeVPJS}</p>
+                          <p className="text-xs text-muted-foreground">{animal.codigoVPJS}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {animal.loading && (
+                          <span className="text-xs text-muted-foreground">Carregando...</span>
+                        )}
+                        {animal.error && (
+                          <span className="text-xs text-red-500">{animal.error}</span>
+                        )}
+                        {animal.location && (
+                          <span className="text-xs text-green-600 flex items-center gap-1">
+                            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                            Online
+                          </span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => removeAnimal(animal.codigoVPJS)}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" x2="6" y1="6" y2="18" />
+                            <line x1="6" x2="18" y1="6" y2="18" />
+                          </svg>
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {trackedAnimals.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Nenhum animal sendo rastreado. Adicione um animal pelo código.
+              </p>
+            )}
           </div>
         </DialogContent>
       </Dialog>

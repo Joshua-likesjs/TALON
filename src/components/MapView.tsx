@@ -12,6 +12,7 @@ import L from "leaflet";
 import { Button } from "@/components/ui/button";
 import * as turf from "@turf/turf";
 import { Point, LocalPolygon } from "@/lib/types";
+import { TrackedAnimalVPJS } from "@/contexts/AnimalsContextVPJS";
 
 // Fix for default marker icons in Leaflet with Next.js
 import icon from "leaflet/dist/images/marker-icon.png";
@@ -53,6 +54,47 @@ const createIcon = (color: string, size: number = 24) => {
 };
 
 const primaryIcon = createIcon("#585c2b", 24);
+
+// Create animal icon (different from user marker)
+const createAnimalIcon = (size: number = 32) => {
+  return L.divIcon({
+    className: "animal-marker",
+    html: `
+      <div style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -100%);
+        width: 0;
+        height: 0;
+        pointer-events: auto;
+      ">
+        <div style="
+          width: ${size}px;
+          height: ${size}px;
+          background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          border: 3px solid white;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">
+          <svg style="transform: rotate(45deg)" width="${size * 0.5}px" height="${size * 0.5}px" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3c0 1.6.8 2.4 1.5 3.5C11.3 9.6 12 10.8 12 12c0-1.2.7-2.4 1.5-3.5C14.2 7.4 15 6.6 15 5a3 3 0 0 0-3-3Z"/>
+            <path d="M12 12c0 1.2-.7 2.4-1.5 3.5-.7 1.1-1.5 1.9-1.5 3.5a3 3 0 0 0 6 0c0-1.6-.8-2.4-1.5-3.5-.8-1.1-1.5-2.3-1.5-3.5Z"/>
+          </svg>
+        </div>
+      </div>
+    `,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size],
+    popupAnchor: [0, -size],
+  });
+};
+
+const animalIcon = createAnimalIcon(32);
 
 
 
@@ -454,6 +496,60 @@ function MultiPolygonLayer({
   return null;
 }
 
+// Component to render animal markers
+function AnimalMarkers({ animals }: { animals: TrackedAnimalVPJS[] }) {
+  const markersRef = useRef<{ [key: string]: L.Marker }>({});
+  const map = useMap();
+  
+  useEffect(() => {
+    // Remove markers for animals that no longer exist
+    Object.keys(markersRef.current).forEach((codigo) => {
+      if (!animals.find(a => a.codigoVPJS === codigo)) {
+        markersRef.current[codigo].remove();
+        delete markersRef.current[codigo];
+      }
+    });
+    
+    // Add or update markers for tracked animals
+    animals.forEach((animal) => {
+      if (animal.location && !animal.loading && !animal.error) {
+        const existingMarker = markersRef.current[animal.codigoVPJS];
+        
+        if (existingMarker) {
+          // Update position
+          existingMarker.setLatLng([animal.location.latitudeVPJS, animal.location.longitudeVPJS]);
+        } else {
+          // Create new marker
+          const marker = L.marker([animal.location.latitudeVPJS, animal.location.longitudeVPJS], {
+            icon: animalIcon,
+          }).addTo(map);
+          
+          // Add popup with animal info
+          marker.bindPopup(`
+            <div style="text-align: center; min-width: 150px;">
+              <strong style="font-size: 14px;">${animal.nomeVPJS}</strong>
+              <br/>
+              <span style="font-size: 12px; color: #666;">Código: ${animal.codigoVPJS}</span>
+              <br/>
+              <span style="font-size: 11px; color: #999;">
+                Atualizado: ${new Date(animal.location.timestampVPJS).toLocaleString('pt-BR')}
+              </span>
+            </div>
+          `);
+          
+          markersRef.current[animal.codigoVPJS] = marker;
+        }
+      }
+    });
+    
+    return () => {
+      Object.values(markersRef.current).forEach(m => m.remove());
+    };
+  }, [animals, map]);
+  
+  return null;
+}
+
 interface MapViewProps {
   allPolygons: LocalPolygon[];
   selectedPolygonId: string | null;
@@ -469,6 +565,7 @@ interface MapViewProps {
   onSelectPolygon: (id: string) => void;
   onDeletePolygon: (id: string) => void;
   onRenamePolygon: () => void;
+  trackedAnimals?: TrackedAnimalVPJS[];
 }
 
 export default function MapView({
@@ -486,6 +583,7 @@ export default function MapView({
   onSelectPolygon,
   onDeletePolygon,
   onRenamePolygon,
+  trackedAnimals = [],
 }: MapViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isCentering, setIsCentering] = useState(false);
@@ -652,6 +750,9 @@ export default function MapView({
           selectedPolygonId={selectedPolygonId}
           onDragEnd={handleVertexDragEnd}
         />
+        
+        {/* Renderizar marcadores de animais */}
+        <AnimalMarkers animals={trackedAnimals} />
       </MapContainer>
 
       {/* Control Panel */}
