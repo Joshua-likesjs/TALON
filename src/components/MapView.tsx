@@ -52,7 +52,7 @@ const createIcon = (color: string, size: number = 24) => {
   });
 };
 
-const blueIcon = createIcon("#3b82f6", 24);
+const primaryIcon = createIcon("#585c2b", 24);
 
 
 
@@ -129,7 +129,7 @@ function LocationMarker({
   }, [map, position, refreshKey]);
 
   return position ? (
-    <Marker position={[position.latitude, position.longitude]} icon={blueIcon} />
+    <Marker position={[position.latitude, position.longitude]} icon={primaryIcon} />
   ) : null;
 }
 
@@ -538,7 +538,7 @@ export default function MapView({
         className={`absolute top-4 right-4 z-[1000] h-12 w-12 rounded-full shadow-lg bg-white hover:bg-gray-100 text-primary border border-gray-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ${isCentering ? 'scale-110' : 'scale-100'}`}
       >
         {isCentering && (
-          <span className="absolute inset-0 rounded-full bg-blue-400 animate-ping opacity-30" />
+          <span className="absolute inset-0 rounded-full bg-primary/40 animate-ping opacity-30" />
         )}
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`relative z-10 ${isCentering ? 'animate-pulse' : ''}`}>
           <circle cx="12" cy="12" r="4" />

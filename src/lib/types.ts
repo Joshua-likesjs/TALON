@@ -1,4 +1,4 @@
-// Tipos compartilhados do GeoFence App
+// Tipos compartilhados do TALON App
 
 export interface Point {
   latitude: number;
@@ -14,7 +14,7 @@ export interface LocalPolygon {
 
 // Cores disponíveis para polígonos
 export const POLYGON_COLORS = [
-  { nome: 'Verde', cor: '#22c55e' },
+  { nome: 'Verde Oliva', cor: '#585c2b' },
   { nome: 'Azul', cor: '#3b82f6' },
   { nome: 'Vermelho', cor: '#ef4444' },
   { nome: 'Roxo', cor: '#a855f7' },

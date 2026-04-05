@@ -260,7 +260,7 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
               polygonsList.push({
                 idVPJS: polygon.idVPJS,
                 nomeVPJS: polygon.nomeVPJS || `Polígono ${polygonsList.length + 1}`,
-                corVPJS: polygon.corVPJS || '#22c55e',
+                corVPJS: polygon.corVPJS || '#585c2b',
                 verticesVPJS: polygon.verticesVPJS || [],
                 createdAtVPJS: polygon.createdAtVPJS || Date.now(),
               });
@@ -274,7 +274,7 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
               polygonsList.push({
                 idVPJS: polygon.idVPJS,
                 nomeVPJS: polygon.nomeVPJS || `Polígono ${polygonsList.length + 1}`,
-                corVPJS: polygon.corVPJS || '#22c55e',
+                corVPJS: polygon.corVPJS || '#585c2b',
                 verticesVPJS: polygon.verticesVPJS || [],
                 createdAtVPJS: polygon.createdAtVPJS || Date.now(),
               });

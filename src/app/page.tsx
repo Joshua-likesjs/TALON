@@ -591,7 +591,7 @@ export default function Home() {
           <div className="flex items-center gap-2">
             {userPosition && (
               <Badge variant="outline" className="hidden sm:flex">
-                <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" />
+                <span className="w-2 h-2 bg-primary rounded-full mr-2 animate-pulse" />
                 GPS
               </Badge>
             )}
@@ -753,23 +753,23 @@ export default function Home() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold shrink-0">1</div>
+              <div className="w-6 h-6 rounded-full bg-[#585c2b] flex items-center justify-center text-white text-xs font-bold shrink-0">1</div>
               <p className="text-sm text-muted-foreground">Clique no mapa para criar seu primeiro polígono e dê um nome a ele</p>
             </div>
             <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center text-white text-xs font-bold shrink-0">2</div>
+              <div className="w-6 h-6 rounded-full bg-[#6b7336] flex items-center justify-center text-white text-xs font-bold shrink-0">2</div>
               <p className="text-sm text-muted-foreground">Continue clicando no mapa para adicionar pontos ao polígono selecionado</p>
             </div>
             <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white text-xs font-bold shrink-0">3</div>
+              <div className="w-6 h-6 rounded-full bg-[#7a8044] flex items-center justify-center text-white text-xs font-bold shrink-0">3</div>
               <p className="text-sm text-muted-foreground">Use os botões coloridos à direita para selecionar qual polígono editar</p>
             </div>
             <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-bold shrink-0">4</div>
+              <div className="w-6 h-6 rounded-full bg-[#4a4e24] flex items-center justify-center text-white text-xs font-bold shrink-0">4</div>
               <p className="text-sm text-muted-foreground">Todos os polígonos são exibidos no mapa. Áreas sobrepostas têm cores misturadas</p>
             </div>
             <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-bold shrink-0">5</div>
+              <div className="w-6 h-6 rounded-full bg-[#3d401e] flex items-center justify-center text-white text-xs font-bold shrink-0">5</div>
               <p className="text-sm text-muted-foreground">Clique em "Verificar" para saber se está dentro de qualquer área</p>
             </div>
             <div className="pt-3 border-t border-border space-y-2">
