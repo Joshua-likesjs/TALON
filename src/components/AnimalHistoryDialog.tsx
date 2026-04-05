@@ -113,7 +113,7 @@ const createAnimalHistoryIcon = (photoUrl?: string, size: number = 32) => {
   });
 };
 
-// Create marker icon for selected time position (smaller blue dot)
+// Create marker icon for selected time position (animal marker)
 const createPositionIcon = (photoUrl?: string) => {
   if (photoUrl) {
     return L.divIcon({
@@ -123,7 +123,7 @@ const createPositionIcon = (photoUrl?: string) => {
           width: 28px;
           height: 28px;
           border-radius: 50%;
-          border: 3px solid #3b82f6;
+          border: 3px solid #f97316;
           box-shadow: 0 2px 8px rgba(0,0,0,0.4);
           overflow: hidden;
         ">
@@ -143,13 +143,14 @@ const createPositionIcon = (photoUrl?: string) => {
     });
   }
   
+  // Pin laranja do animal (não azul do usuário)
   return L.divIcon({
     className: 'position-marker',
     html: `
       <div style="
         width: 20px;
         height: 20px;
-        background: #3b82f6;
+        background: #f97316;
         border: 3px solid white;
         border-radius: 50%;
         box-shadow: 0 2px 8px rgba(0,0,0,0.4);
