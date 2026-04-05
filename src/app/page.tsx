@@ -57,7 +57,7 @@ const timerOptions = [
 
 export default function Home() {
   const { userVPJS, loadingVPJS, signOutVPJS, savePolygonsVPJS, polygonsVPJS, saveTimerVPJS, timerVPJS } = useAuthVPJS();
-  const { trackedAnimals, addAnimal, removeAnimal, isTracking } = useAnimalsVPJS();
+  const { trackedAnimals, addAnimal, removeAnimal, updateAnimal, isTracking } = useAnimalsVPJS();
   
   // Estado local dos polígonos
   const [polygons, setPolygons] = useState<LocalPolygon[]>([]);
@@ -168,8 +168,16 @@ export default function Home() {
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [animalCode, setAnimalCode] = useState("");
   const [animalName, setAnimalName] = useState("");
+  const [animalFoto, setAnimalFoto] = useState<string>("");
   const [animalError, setAnimalError] = useState<string | null>(null);
   const [animalSuccess, setAnimalSuccess] = useState<string | null>(null);
+  
+  // Edit animal state
+  const [editAnimalDialogOpen, setEditAnimalDialogOpen] = useState(false);
+  const [editAnimalCodigo, setEditAnimalCodigo] = useState<string>("");
+  const [editAnimalNome, setEditAnimalNome] = useState<string>("");
+  const [editAnimalFoto, setEditAnimalFoto] = useState<string>("");
+  
   const [newPolygonName, setNewPolygonName] = useState("");
   const [renameValue, setRenameValue] = useState("");
 
@@ -744,6 +752,7 @@ export default function Home() {
         if (!open) {
           setAnimalCode("");
           setAnimalName("");
+          setAnimalFoto("");
           setAnimalError(null);
           setAnimalSuccess(null);
         }
@@ -777,6 +786,48 @@ export default function Home() {
                   className="text-center" 
                 />
               </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Foto (opcional)</label>
+                <div className="flex items-center gap-3">
+                  {animalFoto ? (
+                    <div className="relative">
+                      <img src={animalFoto} alt="Preview" className="w-16 h-16 rounded-full object-cover border-2 border-primary" />
+                      <button
+                        onClick={() => setAnimalFoto("")}
+                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer">
+                      <div className="w-16 h-16 rounded-full bg-muted border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:bg-muted/80 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                          <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                          <circle cx="9" cy="9" r="2" />
+                          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                        </svg>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              setAnimalFoto(ev.target?.result as string);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                  <span className="text-xs text-muted-foreground">Clique para adicionar foto</span>
+                </div>
+              </div>
               
               {/* Mensagens de erro/sucesso */}
               {animalError && (
@@ -800,10 +851,11 @@ export default function Home() {
                   }
                   
                   try {
-                    await addAnimal(animalCode.trim(), animalName.trim() || undefined);
+                    await addAnimal(animalCode.trim(), animalName.trim() || undefined, animalFoto || undefined);
                     setAnimalSuccess(`Animal ${animalCode.trim()} adicionado!`);
                     setAnimalCode("");
                     setAnimalName("");
+                    setAnimalFoto("");
                     setTimeout(() => setAnimalSuccess(null), 3000);
                   } catch (error) {
                     if (error instanceof Error) {
@@ -833,30 +885,49 @@ export default function Home() {
                       className="flex items-center justify-between p-3 bg-card rounded-lg border border-border"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 2a3 3 0 0 0-3 3c0 1.6.8 2.4 1.5 3.5C11.3 9.6 12 10.8 12 12c0-1.2.7-2.4 1.5-3.5C14.2 7.4 15 6.6 15 5a3 3 0 0 0-3-3Z" />
-                            <path d="M12 12c0 1.2-.7 2.4-1.5 3.5-.7 1.1-1.5 1.9-1.5 3.5a3 3 0 0 0 6 0c0-1.6-.8-2.4-1.5-3.5-.8-1.1-1.5-2.3-1.5-3.5Z" />
-                          </svg>
-                        </div>
+                        {animal.fotoVPJS ? (
+                          <img src={animal.fotoVPJS} alt={animal.nomeVPJS} className="w-10 h-10 rounded-full object-cover border-2 border-orange-400" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 2a3 3 0 0 0-3 3c0 1.6.8 2.4 1.5 3.5C11.3 9.6 12 10.8 12 12c0-1.2.7-2.4 1.5-3.5C14.2 7.4 15 6.6 15 5a3 3 0 0 0-3-3Z" />
+                              <path d="M12 12c0 1.2-.7 2.4-1.5 3.5-.7 1.1-1.5 1.9-1.5 3.5a3 3 0 0 0 6 0c0-1.6-.8-2.4-1.5-3.5-.8-1.1-1.5-2.3-1.5-3.5Z" />
+                            </svg>
+                          </div>
+                        )}
                         <div>
                           <p className="font-medium text-sm">{animal.nomeVPJS}</p>
                           <p className="text-xs text-muted-foreground">{animal.codigoVPJS}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         {animal.loading && (
-                          <span className="text-xs text-muted-foreground">Carregando...</span>
+                          <span className="text-xs text-muted-foreground mr-2">Carregando...</span>
                         )}
                         {animal.error && (
-                          <span className="text-xs text-red-500">{animal.error}</span>
+                          <span className="text-xs text-red-500 mr-2">{animal.error}</span>
                         )}
                         {animal.location && (
-                          <span className="text-xs text-green-600 flex items-center gap-1">
+                          <span className="text-xs text-green-600 flex items-center gap-1 mr-2">
                             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                             Online
                           </span>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                          onClick={() => {
+                            setEditAnimalCodigo(animal.codigoVPJS);
+                            setEditAnimalNome(animal.nomeVPJS);
+                            setEditAnimalFoto(animal.fotoVPJS || "");
+                            setEditAnimalDialogOpen(true);
+                          }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                          </svg>
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -880,6 +951,82 @@ export default function Home() {
                 Nenhum animal sendo rastreado. Adicione um animal pelo código.
               </p>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Animal Dialog */}
+      <Dialog open={editAnimalDialogOpen} onOpenChange={setEditAnimalDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar Animal</DialogTitle>
+            <DialogDescription>Altere o nome e a foto do animal</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Código</label>
+              <Input value={editAnimalCodigo} disabled className="bg-muted text-muted-foreground" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nome</label>
+              <Input 
+                placeholder="Nome do animal" 
+                value={editAnimalNome} 
+                onChange={(e) => setEditAnimalNome(e.target.value)} 
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Foto</label>
+              <div className="flex items-center gap-3">
+                {editAnimalFoto ? (
+                  <div className="relative">
+                    <img src={editAnimalFoto} alt="Preview" className="w-20 h-20 rounded-full object-cover border-2 border-primary" />
+                    <button
+                      onClick={() => setEditAnimalFoto("")}
+                      className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-sm"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer">
+                    <div className="w-20 h-20 rounded-full bg-muted border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:bg-muted/80 transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                        <circle cx="9" cy="9" r="2" />
+                        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                      </svg>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            setEditAnimalFoto(ev.target?.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+                <span className="text-xs text-muted-foreground">Clique para {editAnimalFoto ? 'trocar' : 'adicionar'} foto</span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setEditAnimalDialogOpen(false)}>Cancelar</Button>
+              <Button className="flex-1" onClick={() => {
+                updateAnimal(editAnimalCodigo, {
+                  nome: editAnimalNome.trim() || `Animal ${editAnimalCodigo}`,
+                  foto: editAnimalFoto || undefined,
+                });
+                setEditAnimalDialogOpen(false);
+              }}>Salvar</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

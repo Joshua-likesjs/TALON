@@ -15,6 +15,7 @@ export interface AnimalLocationVPJS {
 export interface TrackedAnimalVPJS {
   codigoVPJS: string;
   nomeVPJS: string;
+  fotoVPJS?: string; // URL ou base64 da foto
   location: AnimalLocationVPJS | null;
   loading: boolean;
   error: string | null;
@@ -22,8 +23,9 @@ export interface TrackedAnimalVPJS {
 
 interface AnimalsContextTypeVPJS {
   trackedAnimals: TrackedAnimalVPJS[];
-  addAnimal: (codigo: string, nome?: string) => Promise<void>;
+  addAnimal: (codigo: string, nome?: string, foto?: string) => Promise<void>;
   removeAnimal: (codigo: string) => void;
+  updateAnimal: (codigo: string, data: { nome?: string; foto?: string }) => void;
   getAnimalByCode: (codigo: string) => TrackedAnimalVPJS | undefined;
   isTracking: (codigo: string) => boolean;
 }
@@ -43,11 +45,12 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     try {
       const stored = localStorage.getItem(LOCAL_TRACKED_ANIMALS_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored) as { codigoVPJS: string; nomeVPJS: string }[];
+        const parsed = JSON.parse(stored) as { codigoVPJS: string; nomeVPJS: string; fotoVPJS?: string }[];
         // Inicializar animais sem localização (será carregada via Firebase)
         const initialAnimals: TrackedAnimalVPJS[] = parsed.map(a => ({
           codigoVPJS: a.codigoVPJS,
           nomeVPJS: a.nomeVPJS,
+          fotoVPJS: a.fotoVPJS,
           location: null,
           loading: true,
           error: null,
@@ -66,6 +69,7 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     const toSave = trackedAnimals.map(a => ({
       codigoVPJS: a.codigoVPJS,
       nomeVPJS: a.nomeVPJS,
+      fotoVPJS: a.fotoVPJS,
     }));
     localStorage.setItem(LOCAL_TRACKED_ANIMALS_KEY, JSON.stringify(toSave));
   }, [trackedAnimals]);
@@ -131,7 +135,7 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     };
   }, [trackedAnimals.map(a => a.codigoVPJS).join(',')]);
 
-  const addAnimal = useCallback(async (codigo: string, nome?: string) => {
+  const addAnimal = useCallback(async (codigo: string, nome?: string, foto?: string) => {
     if (!codigo || codigo.trim() === '') {
       throw new Error('Código do animal é obrigatório');
     }
@@ -147,6 +151,7 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     const newAnimal: TrackedAnimalVPJS = {
       codigoVPJS: codigoTrimmed,
       nomeVPJS: nome || `Animal ${codigoTrimmed}`,
+      fotoVPJS: foto,
       location: null,
       loading: true,
       error: null,
@@ -178,6 +183,14 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     setTrackedAnimals(prev => prev.filter(a => a.codigoVPJS !== codigo));
   }, []);
 
+  const updateAnimal = useCallback((codigo: string, data: { nome?: string; foto?: string }) => {
+    setTrackedAnimals(prev => prev.map(a => 
+      a.codigoVPJS === codigo 
+        ? { ...a, ...data }
+        : a
+    ));
+  }, []);
+
   const getAnimalByCode = useCallback((codigo: string) => {
     return trackedAnimals.find(a => a.codigoVPJS === codigo);
   }, [trackedAnimals]);
@@ -190,9 +203,10 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     trackedAnimals,
     addAnimal,
     removeAnimal,
+    updateAnimal,
     getAnimalByCode,
     isTracking,
-  }), [trackedAnimals, addAnimal, removeAnimal, getAnimalByCode, isTracking]);
+  }), [trackedAnimals, addAnimal, removeAnimal, updateAnimal, getAnimalByCode, isTracking]);
 
   return (
     <AnimalsContextVPJS.Provider value={value}>
