@@ -380,6 +380,13 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
             animais: {}
           });
         }
+        
+        // Faz login automático após cadastro
+        setUserVPJS({
+          uidVPJS: firebaseUser.uid,
+          emailVPJS: email.toLowerCase(),
+          nomeVPJS: nome,
+        });
       } catch (error) {
         if (error instanceof FirebaseError) {
           throw new Error(getFirebaseErrorMessage(error));
