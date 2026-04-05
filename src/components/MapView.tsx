@@ -56,7 +56,55 @@ const createIcon = (color: string, size: number = 24) => {
 const primaryIcon = createIcon("#585c2b", 24);
 
 // Create animal icon (different from user marker)
-const createAnimalIcon = (size: number = 32) => {
+const createAnimalIcon = (size: number = 32, photoUrl?: string) => {
+  // Se tem foto, criar ícone com a foto
+  if (photoUrl) {
+    return L.divIcon({
+      className: "animal-marker",
+      html: `
+        <div style="
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -100%);
+          width: 0;
+          height: 0;
+          pointer-events: auto;
+        ">
+          <div style="
+            width: ${size}px;
+            height: ${size}px;
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            border: 3px solid white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+          ">
+            <img 
+              src="${photoUrl}" 
+              alt="Animal" 
+              style="
+                width: ${size - 6}px;
+                height: ${size - 6}px;
+                border-radius: 50%;
+                object-fit: cover;
+                transform: rotate(45deg);
+              "
+            />
+          </div>
+        </div>
+      `,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size],
+      popupAnchor: [0, -size],
+    });
+  }
+  
+  // Ícone padrão sem foto
   return L.divIcon({
     className: "animal-marker",
     html: `
@@ -522,9 +570,15 @@ function AnimalMarkers({ animals }: { animals: TrackedAnimalVPJS[] }) {
         // Check if timestamp changed
         const timestampChanged = prevTimestamp !== undefined && prevTimestamp !== currentTimestamp;
         
+        // Create icon with animal photo if available
+        const icon = createAnimalIcon(40, animal.fotoVPJS);
+        
         if (existingMarker) {
           // Update position
           existingMarker.setLatLng([animal.location.latitudeVPJS, animal.location.longitudeVPJS]);
+          
+          // Update icon (in case photo changed)
+          existingMarker.setIcon(icon);
           
           // Update popup content if timestamp changed or always update to be safe
           existingMarker.setPopupContent(`
@@ -544,9 +598,9 @@ function AnimalMarkers({ animals }: { animals: TrackedAnimalVPJS[] }) {
             console.log(`🔥 Animal ${animal.codigoVPJS} atualizado - Novo timestamp: ${new Date(currentTimestamp).toLocaleString('pt-BR')}`);
           }
         } else {
-          // Create new marker
+          // Create new marker with photo icon
           const marker = L.marker([animal.location.latitudeVPJS, animal.location.longitudeVPJS], {
-            icon: animalIcon,
+            icon: icon,
           }).addTo(map);
           
           // Add popup with animal info
