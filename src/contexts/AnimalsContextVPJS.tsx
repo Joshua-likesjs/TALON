@@ -85,15 +85,19 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
         if (snapshot.exists()) {
           const data = snapshot.val();
           
-          // Verificar se os dados existem
-          if (data && typeof data.latitudeVPJS === 'number' && typeof data.longitudeVPJS === 'number') {
+          // Verificar se os dados existem (campos sem sufixo VPJS no Firebase)
+          const lat = data.latitude ?? data.latitudeVPJS;
+          const lng = data.longitude ?? data.longitudeVPJS;
+          const ts = data.timestamp ?? data.timestampVPJS;
+          
+          if (data && typeof lat === 'number' && typeof lng === 'number') {
             const location: AnimalLocationVPJS = {
-              latitudeVPJS: data.latitudeVPJS,
-              longitudeVPJS: data.longitudeVPJS,
-              timestampVPJS: data.timestampVPJS || Date.now(),
+              latitudeVPJS: lat,
+              longitudeVPJS: lng,
+              timestampVPJS: ts || Date.now(),
             };
             
-            console.log(`🔥 Localização recebida para ${animal.codigoVPJS}:`, location);
+            console.log(`🔥 Localização recebida para ${animal.codigoVPJS}:`, location, '(dados brutos:', data, ')');
             
             setTrackedAnimals(prev => prev.map(a => 
               a.codigoVPJS === animal.codigoVPJS 
