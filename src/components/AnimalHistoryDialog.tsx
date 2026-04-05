@@ -170,7 +170,14 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
   // Filter history by period - compute derived state
   const computedFilteredHistory = history.length === 0 
     ? [] 
-    : history.filter(p => p.timestamp >= Date.now() - (selectedPeriod.seconds * 1000));
+    : history.filter(p => {
+        const cutoff = Date.now() - (selectedPeriod.seconds * 1000);
+        const passes = p.timestamp >= cutoff;
+        console.log(`🔥 Filtro: ponto timestamp=${p.timestamp}, cutoff=${cutoff}, passa=${passes}`);
+        return passes;
+      });
+  
+  console.log(`🔥 history.length=${history.length}, computedFilteredHistory.length=${computedFilteredHistory.length}`);
 
   // Update filtered history when period changes
   useEffect(() => {
