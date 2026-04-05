@@ -25,7 +25,6 @@ import { isPointInPolygon } from "geolib";
 import { useAuthVPJS } from "@/contexts/AuthContextVPJS";
 import { useAnimalsVPJS, TrackedAnimalVPJS } from "@/contexts/AnimalsContextVPJS";
 import { LoginPageVPJS } from "@/components/LoginPageVPJS";
-import { AnimalHistoryDialog } from "@/components/AnimalHistoryDialog";
 import { Point, LocalPolygon, POLYGON_COLORS } from "@/lib/types";
 
 // Import MapView dynamically to avoid SSR issues with Leaflet
@@ -39,6 +38,11 @@ const MapView = dynamic(() => import("@/components/MapView"), {
       </div>
     </div>
   ),
+});
+
+// Import AnimalHistoryDialog dynamically to avoid SSR issues with Leaflet
+const AnimalHistoryDialog = dynamic(() => import("@/components/AnimalHistoryDialog").then(mod => ({ default: mod.AnimalHistoryDialog })), {
+  ssr: false,
 });
 
 
