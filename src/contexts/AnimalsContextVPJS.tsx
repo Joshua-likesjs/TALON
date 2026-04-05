@@ -47,6 +47,24 @@ const LOCAL_TRACKED_ANIMALS_KEY = 'talon_tracked_animals_codes_vpjs';
 // Manter histórico de 7 dias (em ms)
 const HISTORY_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
+// Máximo de pontos por animal
+const MAX_HISTORY_POINTS = 500;
+
+// Distância mínima em metros para salvar novo ponto (evitar pontos muito próximos)
+const MIN_DISTANCE_METERS = 10;
+
+// Calcular distância entre dois pontos em metros (fórmula de Haversine)
+function getDistanceInMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000; // Raio da Terra em metros
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export function AnimalsProviderVPJS({ children }: { children: React.ReactNode }) {
   const { userVPJS } = useAuthVPJS();
   const [trackedAnimals, setTrackedAnimals] = useState<TrackedAnimalVPJS[]>([]);
@@ -93,6 +111,60 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     if (!isFirebaseConfigured || !database) return;
     
     try {
+      const allHistoryRef = ref(database, `animaisVPJS/${codigo}/historicoVPJS`);
+      const snapshot = await get(allHistoryRef);
+      
+      // Verificar distância mínima do último ponto
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const points = Object.entries(data).map(([key, value]: [string, any]) => ({
+          key,
+          ...value,
+        }));
+        
+        // Ordenar por timestamp e pegar o mais recente
+        points.sort((a, b) => b.timestamp - a.timestamp);
+        
+        if (points.length > 0) {
+          const lastPoint = points[0];
+          const distance = getDistanceInMeters(lat, lng, lastPoint.latitude, lastPoint.longitude);
+          
+          if (distance < MIN_DISTANCE_METERS) {
+            console.log(`🔥 Pulando histórico para ${codigo}: distância muito pequena (${distance.toFixed(1)}m)`);
+            return;
+          }
+        }
+        
+        // Limpar pontos antigos (mais de 7 dias) e excesso de pontos
+        const cutoffTime = Date.now() - HISTORY_RETENTION_MS;
+        const deletePromises: Promise<void>[] = [];
+        
+        // Filtrar pontos válidos
+        const validPoints = points.filter(p => p.timestamp >= cutoffTime);
+        
+        // Se ainda tem muitos pontos, remover os mais antigos
+        if (validPoints.length >= MAX_HISTORY_POINTS) {
+          const pointsToRemove = validPoints.slice(MAX_HISTORY_POINTS - 1);
+          pointsToRemove.forEach(p => {
+            const oldRef = ref(database, `animaisVPJS/${codigo}/historicoVPJS/${p.key}`);
+            deletePromises.push(set(oldRef, null));
+          });
+          console.log(`🔥 Removendo ${pointsToRemove.length} pontos excedentes de ${codigo}`);
+        }
+        
+        // Remover pontos muito antigos
+        points.forEach(p => {
+          if (p.timestamp < cutoffTime) {
+            const oldRef = ref(database, `animaisVPJS/${codigo}/historicoVPJS/${p.key}`);
+            deletePromises.push(set(oldRef, null));
+          }
+        });
+        
+        if (deletePromises.length > 0) {
+          await Promise.all(deletePromises);
+        }
+      }
+      
       // Salvar novo ponto no histórico
       const historyRef = ref(database, `animaisVPJS/${codigo}/historicoVPJS`);
       const newPointRef = push(historyRef);
@@ -103,27 +175,6 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
       });
       console.log(`🔥 Histórico salvo para ${codigo}:`, { lat, lng, timestamp });
       
-      // Limpar pontos antigos (mais de 7 dias)
-      const cutoffTime = Date.now() - HISTORY_RETENTION_MS;
-      const allHistoryRef = ref(database, `animaisVPJS/${codigo}/historicoVPJS`);
-      const snapshot = await get(allHistoryRef);
-      
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const deletePromises: Promise<void>[] = [];
-        
-        Object.keys(data).forEach((key) => {
-          if (data[key].timestamp < cutoffTime) {
-            const oldRef = ref(database, `animaisVPJS/${codigo}/historicoVPJS/${key}`);
-            deletePromises.push(set(oldRef, null));
-          }
-        });
-        
-        if (deletePromises.length > 0) {
-          await Promise.all(deletePromises);
-          console.log(`🔥 Limpos ${deletePromises.length} pontos antigos do histórico de ${codigo}`);
-        }
-      }
     } catch (error) {
       console.error('Erro ao salvar histórico:', error);
     }
