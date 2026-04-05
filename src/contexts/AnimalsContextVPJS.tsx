@@ -374,21 +374,31 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
 
   // Carregar histórico do animal
   const loadAnimalHistory = useCallback(async (codigo: string, maxPoints: number = 1000): Promise<HistoryPointVPJS[]> => {
+    console.log(`🔥 loadAnimalHistory chamado para: ${codigo}`);
+    
     if (!isFirebaseConfigured || !database) {
+      console.log(`🔥 Firebase não configurado`);
       return [];
     }
 
     try {
       const historyRef = ref(database, `animaisVPJS/${codigo}/historicoVPJS`);
+      console.log(`🔥 Buscando em: animaisVPJS/${codigo}/historicoVPJS`);
+      
       const historyQuery = query(historyRef, orderByKey(), limitToLast(maxPoints));
       const snapshot = await get(historyQuery);
       
+      console.log(`🔥 Snapshot existe: ${snapshot.exists()}`);
+      
       if (snapshot.exists()) {
         const data = snapshot.val();
+        console.log(`🔥 Dados brutos:`, data);
+        
         const points: HistoryPointVPJS[] = [];
         
         Object.keys(data).forEach((key) => {
           const point = data[key];
+          console.log(`🔥 Ponto ${key}:`, point);
           if (point && typeof point.latitude === 'number' && typeof point.longitude === 'number') {
             points.push({
               latitude: point.latitude,
@@ -404,6 +414,7 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
         return points;
       }
       
+      console.log(`🔥 Nenhum snapshot encontrado`);
       return [];
     } catch (error) {
       console.error('Erro ao carregar histórico:', error);
