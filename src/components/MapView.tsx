@@ -95,6 +95,7 @@ function LocationMarker({
   const map = useMap();
   const prevRefreshKey = useRef(0);
   const hasLocatedRef = useRef(false);
+  const hasCenteredRef = useRef(false); // Controla se já centralizou
 
   useEffect(() => {
     // Só localiza uma vez no início
@@ -103,8 +104,11 @@ function LocationMarker({
 
     const handleLocationFound = (e: { latlng: { lat: number; lng: number } }) => {
       onLocationFound(e.latlng.lat, e.latlng.lng);
-      // Centraliza o mapa na localização do usuário com zoom 17
-      map.flyTo([e.latlng.lat, e.latlng.lng], 17, { duration: 1.5 });
+      // Só centraliza na primeira vez que entra no site
+      if (!hasCenteredRef.current) {
+        hasCenteredRef.current = true;
+        map.flyTo([e.latlng.lat, e.latlng.lng], 17, { duration: 1.5 });
+      }
     };
 
     const handleLocationError = () => {
@@ -124,6 +128,7 @@ function LocationMarker({
   }, [map, onLocationFound]);
 
   useEffect(() => {
+    // Atualiza localização sem centralizar (para o timer)
     if (position && refreshKey > 0 && refreshKey !== prevRefreshKey.current) {
       prevRefreshKey.current = refreshKey;
       map.locate({ setView: false, enableHighAccuracy: true, timeout: 10000 });
