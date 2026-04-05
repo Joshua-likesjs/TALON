@@ -1,7 +1,7 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
-import { ref, onValue, off, get, update } from 'firebase/database';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback, useRef } from 'react';
+import { ref, onValue, off, get, update, push, set, query, orderByKey, limitToLast } from 'firebase/database';
 import { database, isFirebaseConfigured } from '@/lib/firebase';
 import { useAuthVPJS } from '@/contexts/AuthContextVPJS';
 
@@ -10,6 +10,13 @@ export interface AnimalLocationVPJS {
   latitudeVPJS: number;
   longitudeVPJS: number;
   timestampVPJS: number;
+}
+
+// Interface para ponto do histórico
+export interface HistoryPointVPJS {
+  latitude: number;
+  longitude: number;
+  timestamp: number;
 }
 
 // Interface para animal rastreado
@@ -29,6 +36,7 @@ interface AnimalsContextTypeVPJS {
   updateAnimal: (codigo: string, data: { nomeVPJS?: string; fotoVPJS?: string }) => Promise<void>;
   getAnimalByCode: (codigo: string) => TrackedAnimalVPJS | undefined;
   isTracking: (codigo: string) => boolean;
+  loadAnimalHistory: (codigo: string, maxPoints?: number) => Promise<HistoryPointVPJS[]>;
 }
 
 const AnimalsContextVPJS = createContext<AnimalsContextTypeVPJS | undefined>(undefined);
@@ -36,10 +44,14 @@ const AnimalsContextVPJS = createContext<AnimalsContextTypeVPJS | undefined>(und
 // Local storage key for tracked animal codes (só os códigos, dados ficam no Firebase)
 const LOCAL_TRACKED_ANIMALS_KEY = 'talon_tracked_animals_codes_vpjs';
 
+// Manter histórico de 7 dias (em ms)
+const HISTORY_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
 export function AnimalsProviderVPJS({ children }: { children: React.ReactNode }) {
   const { userVPJS } = useAuthVPJS();
   const [trackedAnimals, setTrackedAnimals] = useState<TrackedAnimalVPJS[]>([]);
   const [animalCodes, setAnimalCodes] = useState<string[]>([]);
+  const prevLocationsRef = useRef<{ [codigo: string]: { lat: number; lng: number; timestamp: number } }>({});
 
   // Carregar códigos de animais do localStorage (por usuário)
   useEffect(() => {
@@ -76,6 +88,47 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     localStorage.setItem(key, JSON.stringify(animalCodes));
   }, [animalCodes, userVPJS]);
 
+  // Função para salvar no histórico
+  const saveToHistory = useCallback(async (codigo: string, lat: number, lng: number, timestamp: number) => {
+    if (!isFirebaseConfigured || !database) return;
+    
+    try {
+      // Salvar novo ponto no histórico
+      const historyRef = ref(database, `animaisVPJS/${codigo}/historicoVPJS`);
+      const newPointRef = push(historyRef);
+      await set(newPointRef, {
+        latitude: lat,
+        longitude: lng,
+        timestamp: timestamp,
+      });
+      console.log(`🔥 Histórico salvo para ${codigo}:`, { lat, lng, timestamp });
+      
+      // Limpar pontos antigos (mais de 7 dias)
+      const cutoffTime = Date.now() - HISTORY_RETENTION_MS;
+      const allHistoryRef = ref(database, `animaisVPJS/${codigo}/historicoVPJS`);
+      const snapshot = await get(allHistoryRef);
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const deletePromises: Promise<void>[] = [];
+        
+        Object.keys(data).forEach((key) => {
+          if (data[key].timestamp < cutoffTime) {
+            const oldRef = ref(database, `animaisVPJS/${codigo}/historicoVPJS/${key}`);
+            deletePromises.push(set(oldRef, null));
+          }
+        });
+        
+        if (deletePromises.length > 0) {
+          await Promise.all(deletePromises);
+          console.log(`🔥 Limpos ${deletePromises.length} pontos antigos do histórico de ${codigo}`);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao salvar histórico:', error);
+    }
+  }, []);
+
   // Configurar listeners do Firebase para cada animal (localização + foto + nome)
   useEffect(() => {
     if (!isFirebaseConfigured || !database || animalCodes.length === 0) return;
@@ -104,6 +157,22 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
             const fotoVPJS = data.fotoVPJS || data.foto || undefined;
             
             console.log(`🔥 Dados recebidos para ${codigo}:`, { location, nomeVPJS, fotoVPJS: fotoVPJS ? 'tem foto' : 'sem foto' });
+            
+            // Verificar se a localização mudou para salvar no histórico
+            const prevLoc = prevLocationsRef.current[codigo];
+            const locationChanged = !prevLoc || 
+              prevLoc.lat !== location.latitudeVPJS || 
+              prevLoc.lng !== location.longitudeVPJS;
+            
+            if (locationChanged) {
+              // Salvar no histórico
+              saveToHistory(codigo, location.latitudeVPJS, location.longitudeVPJS, location.timestampVPJS);
+              prevLocationsRef.current[codigo] = {
+                lat: location.latitudeVPJS,
+                lng: location.longitudeVPJS,
+                timestamp: location.timestampVPJS,
+              };
+            }
             
             setTrackedAnimals(prev => {
               const existing = prev.find(a => a.codigoVPJS === codigo);
@@ -163,7 +232,7 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     return () => {
       Object.values(listeners).forEach(unsubscribe => unsubscribe());
     };
-  }, [animalCodes.join(',')]);
+  }, [animalCodes.join(','), saveToHistory]);
 
   const addAnimal = useCallback(async (codigo: string, nome?: string, foto?: string) => {
     if (!codigo || codigo.trim() === '') {
@@ -252,6 +321,45 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     return animalCodes.includes(codigo);
   }, [animalCodes]);
 
+  // Carregar histórico do animal
+  const loadAnimalHistory = useCallback(async (codigo: string, maxPoints: number = 1000): Promise<HistoryPointVPJS[]> => {
+    if (!isFirebaseConfigured || !database) {
+      return [];
+    }
+
+    try {
+      const historyRef = ref(database, `animaisVPJS/${codigo}/historicoVPJS`);
+      const historyQuery = query(historyRef, orderByKey(), limitToLast(maxPoints));
+      const snapshot = await get(historyQuery);
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const points: HistoryPointVPJS[] = [];
+        
+        Object.keys(data).forEach((key) => {
+          const point = data[key];
+          if (point && typeof point.latitude === 'number' && typeof point.longitude === 'number') {
+            points.push({
+              latitude: point.latitude,
+              longitude: point.longitude,
+              timestamp: point.timestamp || 0,
+            });
+          }
+        });
+        
+        // Ordenar por timestamp
+        points.sort((a, b) => a.timestamp - b.timestamp);
+        console.log(`🔥 Histórico carregado para ${codigo}: ${points.length} pontos`);
+        return points;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Erro ao carregar histórico:', error);
+      return [];
+    }
+  }, []);
+
   const value = useMemo(() => ({
     trackedAnimals,
     addAnimal,
@@ -259,7 +367,8 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     updateAnimal,
     getAnimalByCode,
     isTracking,
-  }), [trackedAnimals, addAnimal, removeAnimal, updateAnimal, getAnimalByCode, isTracking]);
+    loadAnimalHistory,
+  }), [trackedAnimals, addAnimal, removeAnimal, updateAnimal, getAnimalByCode, isTracking, loadAnimalHistory]);
 
   return (
     <AnimalsContextVPJS.Provider value={value}>

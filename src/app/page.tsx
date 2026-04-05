@@ -25,6 +25,7 @@ import { isPointInPolygon } from "geolib";
 import { useAuthVPJS } from "@/contexts/AuthContextVPJS";
 import { useAnimalsVPJS, TrackedAnimalVPJS } from "@/contexts/AnimalsContextVPJS";
 import { LoginPageVPJS } from "@/components/LoginPageVPJS";
+import { AnimalHistoryDialog } from "@/components/AnimalHistoryDialog";
 import { Point, LocalPolygon, POLYGON_COLORS } from "@/lib/types";
 
 // Import MapView dynamically to avoid SSR issues with Leaflet
@@ -177,6 +178,10 @@ export default function Home() {
   const [editAnimalCodigo, setEditAnimalCodigo] = useState<string>("");
   const [editAnimalNome, setEditAnimalNome] = useState<string>("");
   const [editAnimalFoto, setEditAnimalFoto] = useState<string>("");
+  
+  // History dialog state
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyAnimal, setHistoryAnimal] = useState<TrackedAnimalVPJS | null>(null);
   
   const [newPolygonName, setNewPolygonName] = useState("");
   const [renameValue, setRenameValue] = useState("");
@@ -921,6 +926,21 @@ export default function Home() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                          onClick={() => {
+                            setHistoryAnimal(animal);
+                            setHistoryDialogOpen(true);
+                          }}
+                          title="Ver histórico"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                          </svg>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
                           onClick={() => {
                             setEditAnimalCodigo(animal.codigoVPJS);
@@ -928,6 +948,7 @@ export default function Home() {
                             setEditAnimalFoto(animal.fotoVPJS || "");
                             setEditAnimalDialogOpen(true);
                           }}
+                          title="Editar"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
@@ -1195,6 +1216,13 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Animal History Dialog */}
+      <AnimalHistoryDialog
+        open={historyDialogOpen}
+        onOpenChange={setHistoryDialogOpen}
+        animal={historyAnimal}
+      />
     </div>
   );
 }
