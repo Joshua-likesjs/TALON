@@ -32,7 +32,7 @@ const MapView = dynamic(() => import("@/components/MapView"), {
   loading: () => (
     <div className="map-wrapper flex items-center justify-center bg-muted">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <img src="/logo-icon.png" alt="TALON" className="w-12 h-12 animate-pulse" />
         <p className="text-muted-foreground text-sm">Carregando mapa...</p>
       </div>
     </div>
@@ -501,7 +501,7 @@ export default function Home() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <img src="/logo-icon.png" alt="TALON" className="w-16 h-16 animate-pulse" />
           <p className="text-muted-foreground">Carregando...</p>
         </div>
       </div>
@@ -580,7 +580,7 @@ export default function Home() {
             </DropdownMenu>
 
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
-              <img src="/logo.png" alt="TALON" className="w-full h-full object-contain" />
+              <img src="/logo-icon.png" alt="TALON" className="w-full h-full object-contain p-1" />
             </div>
             <div>
               <h1 className="text-base font-bold">TALON</h1>

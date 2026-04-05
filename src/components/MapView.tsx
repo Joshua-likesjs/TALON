@@ -527,7 +527,7 @@ export default function MapView({
       {isLoading && (
         <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <img src="/logo-icon.png" alt="TALON" className="w-12 h-12 animate-pulse" />
             <p className="text-muted-foreground text-sm">Obtendo localização...</p>
           </div>
         </div>

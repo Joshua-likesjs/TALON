@@ -130,8 +130,8 @@ export function LoginPageVPJS() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden">
-              <img src="/logo.png" alt="TALON" className="w-full h-full object-contain" />
+            <div className="w-20 h-20 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden p-2">
+              <img src="/logo-icon.png" alt="TALON" className="w-full h-full object-contain" />
             </div>
           </div>
           <CardTitle className="text-2xl font-bold">TALON</CardTitle>

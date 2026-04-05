@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   keywords: ["TALON", "Geofencing", "Mapas", "OpenStreetMap", "Next.js", "React", "Localização"],
   authors: [{ name: "TALON Team" }],
   icons: {
-    icon: "/logo.png",
+    icon: "/logo-icon.png",
   },
   openGraph: {
     title: "TALON",
