@@ -30,8 +30,119 @@ const periodOptions = [
 // View mode
 type ViewMode = 'heatmap' | 'rastro' | 'ambos';
 
-// Create marker icon for selected time position
-const createPositionIcon = () => {
+// Create marker icon with animal photo
+const createAnimalHistoryIcon = (photoUrl?: string, size: number = 32) => {
+  // Se tem foto, criar ícone com a foto
+  if (photoUrl) {
+    return L.divIcon({
+      className: 'animal-history-marker',
+      html: `
+        <div style="
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -100%);
+          width: 0;
+          height: 0;
+          pointer-events: auto;
+        ">
+          <div style="
+            width: ${size}px;
+            height: ${size}px;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            border: 3px solid white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+            overflow: hidden;
+          ">
+            <img 
+              src="${photoUrl}" 
+              alt="Animal" 
+              style="
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                transform: rotate(45deg) scale(1.5);
+                transform-origin: center;
+              "
+            />
+          </div>
+        </div>
+      `,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size],
+      popupAnchor: [0, -size],
+    });
+  }
+  
+  // Ícone padrão sem foto (pin laranja)
+  return L.divIcon({
+    className: 'animal-history-marker',
+    html: `
+      <div style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -100%);
+        width: 0;
+        height: 0;
+        pointer-events: auto;
+      ">
+        <div style="
+          width: ${size}px;
+          height: ${size}px;
+          background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          border: 3px solid white;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">
+          <svg style="transform: rotate(45deg)" width="${size * 0.5}px" height="${size * 0.5}px" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3c0 1.6.8 2.4 1.5 3.5C11.3 9.6 12 10.8 12 12c0-1.2.7-2.4 1.5-3.5C14.2 7.4 15 6.6 15 5a3 3 0 0 0-3-3Z"/>
+            <path d="M12 12c0 1.2-.7 2.4-1.5 3.5-.7 1.1-1.5 1.9-1.5 3.5a3 3 0 0 0 6 0c0-1.6-.8-2.4-1.5-3.5-.8-1.1-1.5-2.3-1.5-3.5Z"/>
+          </svg>
+        </div>
+      </div>
+    `,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size],
+    popupAnchor: [0, -size],
+  });
+};
+
+// Create marker icon for selected time position (smaller blue dot)
+const createPositionIcon = (photoUrl?: string) => {
+  if (photoUrl) {
+    return L.divIcon({
+      className: 'position-marker',
+      html: `
+        <div style="
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          border: 3px solid #3b82f6;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+          overflow: hidden;
+        ">
+          <img 
+            src="${photoUrl}" 
+            alt="Animal" 
+            style="
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+            "
+          />
+        </div>
+      `,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+    });
+  }
+  
   return L.divIcon({
     className: 'position-marker',
     html: `
@@ -362,7 +473,7 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
                 {selectedPoint && (
                   <Marker
                     position={[selectedPoint.latitude, selectedPoint.longitude]}
-                    icon={createPositionIcon()}
+                    icon={createPositionIcon(animal?.fotoVPJS)}
                   />
                 )}
                 
@@ -370,21 +481,7 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
                 {filteredHistory.length === 1 && (
                   <Marker
                     position={[filteredHistory[0].latitude, filteredHistory[0].longitude]}
-                    icon={L.divIcon({
-                      className: 'single-point-marker',
-                      html: `
-                        <div style="
-                          width: 24px;
-                          height: 24px;
-                          background: #f97316;
-                          border: 3px solid white;
-                          border-radius: 50%;
-                          box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-                        "></div>
-                      `,
-                      iconSize: [24, 24],
-                      iconAnchor: [12, 12],
-                    })}
+                    icon={createAnimalHistoryIcon(animal?.fotoVPJS, 36)}
                   />
                 )}
               </MapContainer>
