@@ -45,6 +45,50 @@ const AnimalHistoryDialog = dynamic(() => import("@/components/AnimalHistoryDial
   ssr: false,
 });
 
+// Import AlertSettingsDialog dynamically
+const AlertSettingsDialog = dynamic(() => import("@/components/AlertSettingsDialog").then(mod => ({ default: mod.AlertSettingsDialog })), {
+  ssr: false,
+});
+
+// Função para sincronizar polígonos com Prisma (para sistema de alertas)
+async function syncPolygonsWithPrisma(firebaseUid: string, polygons: LocalPolygon[]) {
+  try {
+    // Buscar polígonos existentes no Prisma
+    const response = await fetch(`/api/polygons/alerts?firebaseUid=${firebaseUid}`);
+    const existingPolygons = await response.json();
+    
+    // Criar ou atualizar cada polígono
+    for (const polygon of polygons) {
+      await fetch('/api/polygons/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firebaseUid,
+          name: polygon.nome,
+          color: polygon.cor,
+          vertices: polygon.vertices,
+        }),
+      });
+    }
+    
+    console.log('🔥 Polígonos sincronizados com Prisma:', polygons.length);
+  } catch (error) {
+    console.error('Erro ao sincronizar polígonos com Prisma:', error);
+  }
+}
+
+// Função para verificar alertas de geofencing
+async function checkAlerts() {
+  try {
+    const response = await fetch('/api/alerts/check', {
+      method: 'POST',
+    });
+    const result = await response.json();
+    console.log('🔥 Verificação de alertas:', result);
+  } catch (error) {
+    console.error('Erro ao verificar alertas:', error);
+  }
+}
 
 
 // Timer options
@@ -144,6 +188,10 @@ export default function Home() {
           console.log('🔥 Salvando polígonos no Firebase:', polygons.length);
           await savePolygonsVPJS(firebasePolygons);
           console.log('🔥 Polígonos salvos!');
+          
+          // Sincronizar polígonos com Prisma (para sistema de alertas)
+          syncPolygonsWithPrisma(userVPJS.uidVPJS, polygons);
+          
           // Resetar flag após um pequeno delay
           setTimeout(() => {
             isLocalChangeRef.current = false;
@@ -187,6 +235,9 @@ export default function Home() {
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [historyAnimal, setHistoryAnimal] = useState<TrackedAnimalVPJS | null>(null);
   
+  // Alert settings dialog state
+  const [alertSettingsDialogOpen, setAlertSettingsDialogOpen] = useState(false);
+  
   const [newPolygonName, setNewPolygonName] = useState("");
   const [renameValue, setRenameValue] = useState("");
 
@@ -228,6 +279,9 @@ export default function Home() {
         lastCheckTimeRef.current = now;
         console.log('🔥 Timer completou! Atualizando localização...');
         setRefreshKey(k => k + 1);
+        
+        // Verificar alertas de geofencing
+        checkAlerts();
       }
     }, 1000);
 
@@ -564,6 +618,13 @@ export default function Home() {
                     <path d="M12 12c0 1.2-.7 2.4-1.5 3.5-.7 1.1-1.5 1.9-1.5 3.5a3 3 0 0 0 6 0c0-1.6-.8-2.4-1.5-3.5-.8-1.1-1.5-2.3-1.5-3.5Z" />
                   </svg>
                   Animais
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setAlertSettingsDialogOpen(true)}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                  </svg>
+                  Alertas
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setHowToUseDialogOpen(true)}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
@@ -1259,6 +1320,13 @@ export default function Home() {
         open={historyDialogOpen}
         onOpenChange={setHistoryDialogOpen}
         animal={historyAnimal}
+      />
+
+      {/* Alert Settings Dialog */}
+      <AlertSettingsDialog
+        open={alertSettingsDialogOpen}
+        onOpenChange={setAlertSettingsDialogOpen}
+        firebaseUid={userVPJS?.uidVPJS}
       />
     </div>
   );

@@ -14,19 +14,61 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String?
+  firebaseUid  String        @unique // UID do Firebase Auth
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  
+  animals      UserAnimal[]  // Animais que o usuário rastreia
+  alerts       Alert[]       // Alertas recebidos
+  polygons     Polygon[]     // Polígonos do usuário
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// Relação usuário-animal (permite múltiplos usuários por animal)
+model UserAnimal {
+  id          String   @id @default(cuid())
+  userId      String
+  animalCode  String   // Código do animal no Firebase
+  animalName  String?  // Nome customizado dado pelo usuário
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, animalCode]) // Um usuário não pode adicionar o mesmo animal duas vezes
+}
+
+// Polígonos do usuário com configuração de alertas
+model Polygon {
+  id           String      @id @default(cuid())
+  userId       String
+  name         String
+  color        String
+  vertices     String      // JSON stringificado: [{lat, lng}, ...]
+  alertOnExit  Boolean     @default(true)  // Alertar quando animal sai
+  alertOnEntry Boolean     @default(true)  // Alertar quando animal entra
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  alerts       Alert[]
+}
+
+// Registro de alertas enviados
+model Alert {
+  id           String   @id @default(cuid())
+  userId       String
+  polygonId    String
+  animalCode   String
+  animalName   String?
+  type         String   // "entry" ou "exit"
+  message      String
+  emailSent    Boolean  @default(false)
+  sentAt       DateTime?
+  createdAt    DateTime @default(now())
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  polygon      Polygon  @relation(fields: [polygonId], references: [id], onDelete: Cascade)
 }

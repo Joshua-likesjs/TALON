@@ -68,6 +68,20 @@ const facebookProvider = new FacebookAuthProvider();
 facebookProvider.addScope('email');
 facebookProvider.addScope('public_profile');
 
+// Função para sincronizar usuário com Prisma (para sistema de alertas)
+async function syncUserWithPrisma(firebaseUid: string, email: string, name: string) {
+  try {
+    await fetch('/api/users/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firebaseUid, email, name }),
+    });
+    console.log('🔥 Usuário sincronizado com Prisma');
+  } catch (error) {
+    console.error('Erro ao sincronizar usuário com Prisma:', error);
+  }
+}
+
 // Local storage keys for demo mode
 const LOCAL_USER_KEY = 'geofence_user_vpjs';
 const LOCAL_USERS_KEY = 'geofence_users_vpjs';
@@ -216,6 +230,9 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
                 emailVPJS: emailVPJS || dbData.emailVPJS || '',
                 nomeVPJS: dbData.nomeVPJS || firebaseUser.displayName || 'Usuário',
               });
+              
+              // Sincronizar usuário com Prisma (para sistema de alertas)
+              syncUserWithPrisma(firebaseUser.uid, emailVPJS || dbData.emailVPJS || '', dbData.nomeVPJS || firebaseUser.displayName || 'Usuário');
             } else {
               // Usuário NÃO existe no database - não criar automaticamente
               // Isso significa que foi um login social sem cadastro prévio

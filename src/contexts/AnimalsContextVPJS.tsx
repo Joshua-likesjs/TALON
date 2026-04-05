@@ -41,6 +41,34 @@ interface AnimalsContextTypeVPJS {
 
 const AnimalsContextVPJS = createContext<AnimalsContextTypeVPJS | undefined>(undefined);
 
+// Função para sincronizar animal com Prisma (para sistema de alertas)
+async function syncAnimalWithPrisma(firebaseUid: string, animalCode: string, animalName?: string) {
+  try {
+    await fetch('/api/animals/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firebaseUid, animalCode, animalName }),
+    });
+    console.log(`🔥 Animal ${animalCode} sincronizado com Prisma`);
+  } catch (error) {
+    console.error('Erro ao sincronizar animal com Prisma:', error);
+  }
+}
+
+// Função para remover animal do Prisma
+async function removeAnimalFromPrisma(firebaseUid: string, animalCode: string) {
+  try {
+    await fetch('/api/animals/sync', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firebaseUid, animalCode }),
+    });
+    console.log(`🔥 Animal ${animalCode} removido do Prisma`);
+  } catch (error) {
+    console.error('Erro ao remover animal do Prisma:', error);
+  }
+}
+
 // Local storage key for tracked animal codes (só os códigos, dados ficam no Firebase)
 const LOCAL_TRACKED_ANIMALS_KEY = 'talon_tracked_animals_codes_vpjs';
 
@@ -336,12 +364,22 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
       loading: true,
       error: null,
     }]);
-  }, [animalCodes]);
+    
+    // Sincronizar com Prisma (para sistema de alertas)
+    if (userVPJS?.uidVPJS) {
+      syncAnimalWithPrisma(userVPJS.uidVPJS, codigoTrimmed, nome);
+    }
+  }, [animalCodes, userVPJS]);
 
   const removeAnimal = useCallback(async (codigo: string) => {
     setAnimalCodes(prev => prev.filter(c => c !== codigo));
     setTrackedAnimals(prev => prev.filter(a => a.codigoVPJS !== codigo));
-  }, []);
+    
+    // Remover do Prisma
+    if (userVPJS?.uidVPJS) {
+      removeAnimalFromPrisma(userVPJS.uidVPJS, codigo);
+    }
+  }, [userVPJS]);
 
   const updateAnimal = useCallback(async (codigo: string, data: { nomeVPJS?: string; fotoVPJS?: string }) => {
     // Atualizar no Firebase
