@@ -40,6 +40,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 local-*
+<<<<<<< HEAD
+=======
+.claude
+.z-ai-config
+>>>>>>> ee04be9 (Initial commit)
 dev.log
 test
 prompt
