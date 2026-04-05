@@ -115,6 +115,23 @@ function FitBounds({ points }: { points: HistoryPointVPJS[] }) {
   return null;
 }
 
+// Component to handle map resize when dialog opens
+function MapResizer() {
+  const map = useMap();
+
+  useEffect(() => {
+    // Invalidate size after a short delay to ensure dialog animation is complete
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+      console.log('🔥 Map invalidated size');
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [map]);
+
+  return null;
+}
+
 interface AnimalHistoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -124,12 +141,10 @@ interface AnimalHistoryDialogProps {
 export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistoryDialogProps) {
   const { loadAnimalHistory } = useAnimalsVPJS();
   const [history, setHistory] = useState<HistoryPointVPJS[]>([]);
-  const [filteredHistory, setFilteredHistory] = useState<HistoryPointVPJS[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState(periodOptions[3]); // default 3h
   const [timeSliderValue, setTimeSliderValue] = useState(100);
   const [viewMode, setViewMode] = useState<ViewMode>('ambos');
-  const [selectedPoint, setSelectedPoint] = useState<HistoryPointVPJS | null>(null);
 
   // Load history when dialog opens
   const loadHistory = useCallback(async () => {
@@ -167,39 +182,23 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
     }
   }, [open, animal, loadHistory]);
 
-  // Filter history by period - compute derived state
-  const computedFilteredHistory = history.length === 0 
-    ? [] 
-    : history.filter(p => {
-        const cutoff = Date.now() - (selectedPeriod.seconds * 1000);
-        const passes = p.timestamp >= cutoff;
-        console.log(`🔥 Filtro: ponto timestamp=${p.timestamp}, cutoff=${cutoff}, passa=${passes}`);
-        return passes;
-      });
+  // Filter history by period - compute derived state (no separate state needed)
+  const filteredHistory = history.filter(p => {
+    const cutoff = Date.now() - (selectedPeriod.seconds * 1000);
+    return p.timestamp >= cutoff;
+  });
   
-  console.log(`🔥 history.length=${history.length}, computedFilteredHistory.length=${computedFilteredHistory.length}`);
+  console.log(`🔥 history.length=${history.length}, filteredHistory.length=${filteredHistory.length}`);
 
-  // Update filtered history when period changes
-  useEffect(() => {
-    setFilteredHistory(computedFilteredHistory);
-    setTimeSliderValue(100);
-  }, [computedFilteredHistory.length, selectedPeriod.seconds]);
-
-  // Compute selected point based on slider
-  const computedSelectedPoint = filteredHistory.length === 0
+  // Compute selected point based on slider (no separate state needed)
+  const selectedPoint = filteredHistory.length === 0
     ? null
     : filteredHistory[Math.floor((timeSliderValue / 100) * (filteredHistory.length - 1))];
-
-  // Update selected point when slider or filtered history changes
-  useEffect(() => {
-    setSelectedPoint(computedSelectedPoint);
-  }, [computedSelectedPoint]);
 
   // Reset state when dialog closes
   useEffect(() => {
     if (!open) {
       setHistory([]);
-      setFilteredHistory([]);
       setTimeSliderValue(100);
     }
   }, [open]);
@@ -308,7 +307,7 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
           </div>
 
           {/* Map */}
-          <div className="flex-1 min-h-[300px] rounded-lg overflow-hidden border border-border">
+          <div className="flex-1 min-h-[400px] h-[400px] rounded-lg overflow-hidden border border-border">
             {loading ? (
               <div className="w-full h-full flex items-center justify-center bg-muted">
                 <div className="flex flex-col items-center gap-2">
@@ -328,11 +327,13 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
               <>
                 {console.log(`🔥 RENDER MAPA: loading=${loading}, filteredHistory.length=${filteredHistory.length}, lat=${filteredHistory[0]?.latitude}, lng=${filteredHistory[0]?.longitude}`)}
                 <MapContainer
+                  key={`map-${filteredHistory.length}-${filteredHistory[0]?.timestamp || 0}`}
                   center={[filteredHistory[0]?.latitude || 0, filteredHistory[0]?.longitude || 0]}
                   zoom={15}
                   style={{ height: '100%', width: '100%' }}
                   className="leaflet-container"
                 >
+                <MapResizer />
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
