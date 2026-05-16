@@ -41,8 +41,6 @@ if (isFirebaseConfigured) {
   } catch (error) {
     console.error('❌ Firebase initialization failed:', error);
   }
-} else {
-  console.log('⚠️ Firebase not configured - using demo mode');
 }
 
 export { app, auth, database };

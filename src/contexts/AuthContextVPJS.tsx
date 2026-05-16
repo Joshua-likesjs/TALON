@@ -236,9 +236,11 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
             } else {
               // Usuário NÃO existe no database - não criar automaticamente
               // Isso significa que foi um login social sem cadastro prévio
-              console.log('🔥 onAuthStateChanged - Usuário não existe no database, fazendo signOut');
-              await firebaseSignOut(auth);
+              console.log('🔥 onAuthStateChanged - Usuário não existe no database, fazendo signOut')
+
+              if (auth) await firebaseSignOut(auth);
               setUserVPJS(null);
+              
             }
           } catch (err) {console.error('🔥 Database error:', err);} 
         } else {
