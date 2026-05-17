@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ref, push, set } from 'firebase/database';
-import { database, isFirebaseConfigured } from '@/lib/firebase';
+import { database, isFirebaseConfigured } from '@/lib/talon/firebase';
 
 export async function POST(request: NextRequest) {
   try {

@@ -118,17 +118,47 @@
   }
   body {
     @apply bg-background text-foreground;
-    margin: 0;
-    padding: 0;
-  }
-  html, body {
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
   }
 }
 
-/* Leaflet styles */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  25% {
+    transform: translateY(-20px) translateX(10px);
+  }
+  50% {
+    transform: translateY(-10px) translateX(-10px);
+  }
+  75% {
+    transform: translateY(-30px) translateX(5px);
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.7 0 0 / 30%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.6 0 0 / 50%);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ═══════════════ TALON Leaflet Styles ═══════════════ */
 .leaflet-container {
   width: 100% !important;
   height: 100% !important;
@@ -149,7 +179,6 @@
   justify-content: center !important;
 }
 
-/* Garantir que os marcadores tenham posicionamento preciso */
 .leaflet-marker-icon {
   display: flex !important;
   align-items: center !important;
@@ -164,7 +193,6 @@
   cursor: grabbing !important;
 }
 
-/* Map container */
 .map-wrapper {
   position: absolute;
   top: 0;
@@ -173,22 +201,18 @@
   bottom: 0;
 }
 
-/* Safe area para dispositivos com notch */
 .safe-area-bottom {
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom)) !important;
 }
 
-/* Estilos para o polígono */
 .leaflet-interactive {
   cursor: pointer;
 }
 
-/* Animação suave para o mapa */
 .leaflet-zoom-animated {
   transition: transform 0.25s cubic-bezier(0, 0, 0.25, 1);
 }
 
-/* Correção para marcadores em diferentes navegadores */
 .leaflet-marker-pane {
   z-index: 600;
 }
@@ -197,7 +221,6 @@
   z-index: 400;
 }
 
-/* Botão de centralizar flutuante */
 .map-center-button {
   position: absolute;
   top: 1rem;

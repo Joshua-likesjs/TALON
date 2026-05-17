@@ -36,16 +36,16 @@ yarn-error.log*
 # vercel
 .vercel
 
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 local-*
-<<<<<<< HEAD
-=======
 .claude
 .z-ai-config
->>>>>>> ee04be9 (Initial commit)
+*.log
 dev.log
+dev.out.log
 test
 prompt
 

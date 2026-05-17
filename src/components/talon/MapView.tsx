@@ -11,7 +11,7 @@ import {
 import L from "leaflet";
 import { Button } from "@/components/ui/button";
 import * as turf from "@turf/turf";
-import { Point, LocalPolygon } from "@/lib/types";
+import { Point, LocalPolygon } from "@/lib/talon/types";
 import { TrackedAnimalVPJS } from "@/contexts/AnimalsContextVPJS";
 
 // Fix for default marker icons in Leaflet with Next.js

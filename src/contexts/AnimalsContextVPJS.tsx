@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback, useRef } from 'react';
 import { ref, onValue, off, get, update, push, set, query, orderByKey, limitToLast } from 'firebase/database';
-import { database, isFirebaseConfigured } from '@/lib/firebase';
+import { database, isFirebaseConfigured } from '@/lib/talon/firebase';
 import { useAuthVPJS } from '@/contexts/AuthContextVPJS';
 
 // Interface para localização do animal
@@ -120,6 +120,12 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
           error: null,
         }));
         setTrackedAnimals(initialAnimals);
+
+        // Sincronizar TODOS os animais com Prisma ao carregar
+        // (necessário para o sistema de alertas funcionar no backend)
+        codes.forEach(codigo => {
+          syncAnimalWithPrisma(userVPJS.uidVPJS, codigo);
+        });
       }
     } catch (e) {
       console.error('Erro ao carregar códigos de animais:', e);
@@ -174,7 +180,7 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
         if (validPoints.length >= MAX_HISTORY_POINTS) {
           const pointsToRemove = validPoints.slice(MAX_HISTORY_POINTS - 1);
           pointsToRemove.forEach(p => {
-            const oldRef = ref(database, `animaisVPJS/${codigo}/historicoVPJS/${p.key}`);
+            const oldRef = ref(database!, `animaisVPJS/${codigo}/historicoVPJS/${p.key}`);
             deletePromises.push(set(oldRef, null));
           });
           console.log(`🔥 Removendo ${pointsToRemove.length} pontos excedentes de ${codigo}`);
@@ -183,7 +189,8 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
         // Remover pontos muito antigos
         points.forEach(p => {
           if (p.timestamp < cutoffTime) {
-            const oldRef = ref(database, `animaisVPJS/${codigo}/historicoVPJS/${p.key}`);
+
+            const oldRef = ref(database!, `animaisVPJS/${codigo}/historicoVPJS/${p.key}`);
             deletePromises.push(set(oldRef, null));
           }
         });
@@ -208,6 +215,34 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     }
   }, []);
 
+  // Debounced alert check - evita múltiplas chamadas quando vários animais se movem ao mesmo tempo
+  const alertCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastAlertCheckRef = useRef<number>(0);
+  const ALERT_CHECK_COOLDOWN = 10_000; // 10 segundos entre verificações
+
+  const triggerAlertCheck = useCallback(() => {
+    const now = Date.now();
+    // Respeitar cooldown mínimo entre verificações
+    if (now - lastAlertCheckRef.current < ALERT_CHECK_COOLDOWN) return;
+
+    if (alertCheckTimeoutRef.current) {
+      clearTimeout(alertCheckTimeoutRef.current);
+    }
+
+    alertCheckTimeoutRef.current = setTimeout(async () => {
+      try {
+        lastAlertCheckRef.current = Date.now();
+        const response = await fetch('/api/alerts/check', { method: 'POST' });
+        const result = await response.json();
+        if (result.eventsDetected > 0) {
+          console.log('🚨 Alertas detectados em tempo real:', result.events);
+        }
+      } catch (error) {
+        console.error('Erro na verificação automática de alertas:', error);
+      }
+    }, 3000); // Aguarda 3s para acumular mudanças de múltiplos animais
+  }, []);
+
   // Configurar listeners do Firebase para cada animal (localização + foto + nome)
   useEffect(() => {
     if (!isFirebaseConfigured || !database || animalCodes.length === 0) return;
@@ -215,7 +250,7 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
     const listeners: { [codigo: string]: () => void } = {};
 
     animalCodes.forEach((codigo) => {
-      const animalRef = ref(database, `animaisVPJS/${codigo}`);
+      const animalRef = ref(database!, `animaisVPJS/${codigo}`);
       
       console.log(`🔥 Configurando listener para animal: ${codigo}`);
       
@@ -246,11 +281,16 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
             if (locationChanged) {
               // Salvar no histórico
               saveToHistory(codigo, location.latitudeVPJS, location.longitudeVPJS, location.timestampVPJS);
+              
+              // Atualizar posição anterior
               prevLocationsRef.current[codigo] = {
                 lat: location.latitudeVPJS,
                 lng: location.longitudeVPJS,
                 timestamp: location.timestampVPJS,
               };
+
+              // Verificar alertas de geofencing quando a posição mudar (debounced)
+              triggerAlertCheck();
             }
             
             setTrackedAnimals(prev => {
@@ -310,6 +350,9 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
 
     return () => {
       Object.values(listeners).forEach(unsubscribe => unsubscribe());
+      if (alertCheckTimeoutRef.current) {
+        clearTimeout(alertCheckTimeoutRef.current);
+      }
     };
   }, [animalCodes.join(','), saveToHistory]);
 

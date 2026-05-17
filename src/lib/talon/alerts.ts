@@ -126,7 +126,8 @@ export function formatEmailSubject(
   return `TALON Alert: ${animalName || animalCode} ${action} ${polygonName}`;
 }
 
-// Formatar corpo do email em HTML
+// Formatar corpo do email em HTML (mantido para referência/preview)
+// Com EmailJS, o template é gerenciado no dashboard do EmailJS
 export function formatEmailBody(
   animalName: string,
   animalCode: string,
@@ -139,7 +140,7 @@ export function formatEmailBody(
   const action = eventType === 'entry' ? 'entrou na área' : 'saiu da área';
   const actionColor = eventType === 'entry' ? '#22c55e' : '#ef4444';
   const date = new Date(timestamp).toLocaleString('pt-BR');
-  
+
   return `
     <!DOCTYPE html>
     <html>
@@ -148,7 +149,7 @@ export function formatEmailBody(
       <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+        .header { background: linear-gradient(135deg, #585c2b 0%, #7a8238 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }
         .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
         .alert-box { background: white; border-left: 4px solid ${actionColor}; padding: 15px; margin: 15px 0; border-radius: 4px; }
         .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
@@ -178,4 +179,132 @@ export function formatEmailBody(
     </body>
     </html>
   `;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Envio de email via EmailJS (chamada direta, sem HTTP fetch interno)
+// ─────────────────────────────────────────────────────────────────
+
+interface SendAlertEmailOptions {
+  email: string;
+  animalName: string;
+  animalCode: string;
+  polygonName: string;
+  eventType: 'entry' | 'exit';
+  timestamp?: number;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface SendAlertEmailResult {
+  success: boolean;
+  simulated?: boolean;
+  emailId?: string;
+  error?: string;
+}
+
+/**
+ * Envia um email de alerta via EmailJS REST API.
+ * Esta função é chamada DIRETAMENTE pelo servidor, sem precisar de fetch HTTP interno.
+ */
+export async function sendAlertEmail(options: SendAlertEmailOptions): Promise<SendAlertEmailResult> {
+  const { email, animalName, animalCode, polygonName, eventType } = options;
+
+  const serviceId = process.env.EMAILJS_SERVICE_ID;
+  const templateId = process.env.EMAILJS_TEMPLATE_ID;
+  const publicKey = process.env.EMAILJS_PUBLIC_KEY;
+  const privateKey = process.env.EMAILJS_PRIVATE_KEY;
+
+  // Verificar se o EmailJS está configurado
+  if (!serviceId || !templateId || !publicKey) {
+    console.log('⚠️ EmailJS não configurado - simulando envio de email');
+    console.log(`📧 Email simulado para ${email}:`);
+    console.log(`   Assunto: ${formatEmailSubject(animalName, animalCode, polygonName, eventType)}`);
+    return {
+      success: true,
+      simulated: true,
+      error: 'EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID ou EMAILJS_PUBLIC_KEY não configurados',
+    };
+  }
+
+  // Montar parâmetros do template
+  const templateParams = buildEmailJSTemplateParams(options);
+
+  // Montar payload para a API REST do EmailJS
+  const payload: Record<string, string | undefined | Record<string, string>> = {
+    service_id: serviceId,
+    template_id: templateId,
+    user_id: publicKey,
+    template_params: templateParams,
+  };
+
+  // Incluir accessToken para uso server-side (mais seguro)
+  if (privateKey) {
+    payload.accessToken = privateKey;
+  }
+
+  try {
+    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Erro ao enviar email via EmailJS:', errorText);
+      return { success: false, error: errorText };
+    }
+
+    const resultText = await response.text();
+    console.log(`✅ Email enviado via EmailJS para ${email}: ${resultText}`);
+    return { success: true, emailId: resultText };
+
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro desconhecido';
+    console.error('❌ Erro no envio de email:', err);
+    return { success: false, error: message };
+  }
+}
+
+// Gerar parâmetros para o template do EmailJS
+// Essas variáveis devem corresponder às configuradas no template do dashboard EmailJS
+export function buildEmailJSTemplateParams(options: {
+  email: string;
+  animalName: string;
+  animalCode: string;
+  polygonName: string;
+  eventType: 'entry' | 'exit';
+  timestamp?: number;
+  latitude?: number;
+  longitude?: number;
+}): Record<string, string> {
+  const {
+    email,
+    animalName,
+    animalCode,
+    polygonName,
+    eventType,
+    timestamp,
+    latitude,
+    longitude,
+  } = options;
+
+  const action = eventType === 'entry' ? 'entrou na área' : 'saiu da área';
+  const date = new Date(timestamp || Date.now()).toLocaleString('pt-BR');
+  const coordinates = latitude && longitude
+    ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+    : 'Não disponível';
+
+  return {
+    to_email: email,
+    animal_name: animalName || animalCode,
+    animal_code: animalCode,
+    polygon_name: polygonName,
+    event_type: eventType === 'entry' ? 'Entrada' : 'Saída',
+    event_action: action,
+    date_time: date,
+    coordinates,
+    alert_subject: formatEmailSubject(animalName, animalCode, polygonName, eventType),
+  };
 }

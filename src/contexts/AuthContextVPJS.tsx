@@ -14,7 +14,7 @@ import {
 } from 'firebase/auth';
 import { FirebaseError } from 'firebase/app';
 import { ref, set, get, update, onValue, off } from 'firebase/database';
-import { auth, database, isFirebaseConfigured } from '@/lib/firebase';
+import { auth, database, isFirebaseConfigured } from '@/lib/talon/firebase';
 
 interface UserVPJS {
   uidVPJS: string;

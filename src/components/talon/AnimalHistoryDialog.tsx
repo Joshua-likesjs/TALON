@@ -232,7 +232,7 @@ function HeatmapLayer({ points }: { points: [number, number, number][] }) {
         },
       });
 
-      heatLayerRef.current.addTo(map);
+      heatLayerRef.current!.addTo(map);
     };
 
     loadHeatLayer();

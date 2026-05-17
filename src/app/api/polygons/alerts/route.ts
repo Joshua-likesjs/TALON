@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
         id: p.id,
         name: p.name,
         color: p.color,
+        vertices: p.vertices,
         alertOnExit: p.alertOnExit,
         alertOnEntry: p.alertOnEntry,
         isActive: p.isActive,
@@ -81,18 +82,77 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// Criar novo polígono com configurações de alerta
+// ─────────────────────────────────────────────────────────────────
+// SYNC: substitui TODOS os polígonos do usuário pelos novos
+// Isso evita duplicatas e garante que polígonos deletados sejam removidos
+// ─────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { firebaseUid, name, color, vertices, alertOnExit, alertOnEntry } = body;
+    const { firebaseUid, polygons } = body;
 
-    if (!firebaseUid || !name || !vertices) {
+    // Formato novo: sync completo { firebaseUid, polygons: [...] }
+    if (firebaseUid && Array.isArray(polygons)) {
+      const user = await db.user.findUnique({
+        where: { firebaseUid }
+      });
+
+      if (!user) {
+        return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+      }
+
+      // Deletar TODOS os polígonos existentes do usuário
+      await db.polygon.deleteMany({
+        where: { userId: user.id }
+      });
+
+      // Criar os novos polígonos
+      const createdPolygons: Awaited<ReturnType<typeof db.polygon.create>>[] = [];
+      for (const poly of polygons) {
+        if (!poly.name || !poly.vertices || poly.vertices.length < 3) {
+          console.log(`⚠️ Pulando polígono inválido: ${poly.name} (${poly.vertices?.length || 0} vértices)`);
+          continue;
+        }
+
+        const polygon = await db.polygon.create({
+          data: {
+            userId: user.id,
+            name: poly.name,
+            color: poly.color || '#585c2b',
+            vertices: JSON.stringify(poly.vertices),
+            alertOnExit: poly.alertOnExit ?? true,
+            alertOnEntry: poly.alertOnEntry ?? true,
+            isActive: poly.isActive ?? true,
+          }
+        });
+        createdPolygons.push(polygon);
+      }
+
+      console.log(`✅ Sync: ${createdPolygons.length} polígonos para ${user.email}`);
+
+      return NextResponse.json({
+        success: true,
+        synced: createdPolygons.length,
+        polygons: createdPolygons.map(p => ({
+          id: p.id,
+          name: p.name,
+          color: p.color,
+          alertOnExit: p.alertOnExit,
+          alertOnEntry: p.alertOnEntry,
+          isActive: p.isActive,
+        })),
+      });
+    }
+
+    // Formato antigo: cria um único polígono (mantido para compatibilidade)
+    const { firebaseUid: uid, name, color, vertices, alertOnExit, alertOnEntry } = body;
+
+    if (!uid || !name || !vertices) {
       return NextResponse.json({ error: 'firebaseUid, name e vertices são obrigatórios' }, { status: 400 });
     }
 
     const user = await db.user.findUnique({
-      where: { firebaseUid }
+      where: { firebaseUid: uid }
     });
 
     if (!user) {
@@ -122,9 +182,47 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Erro ao criar polígono:', error);
+    console.error('Erro ao sincronizar polígonos:', error);
     return NextResponse.json({
-      error: 'Erro ao criar polígono',
+      error: 'Erro ao sincronizar polígonos',
+      details: error instanceof Error ? error.message : 'Erro desconhecido'
+    }, { status: 500 });
+  }
+}
+
+// Deletar todos os polígonos de um usuário
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { firebaseUid } = body;
+
+    if (!firebaseUid) {
+      return NextResponse.json({ error: 'firebaseUid é obrigatório' }, { status: 400 });
+    }
+
+    const user = await db.user.findUnique({
+      where: { firebaseUid }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+    }
+
+    const result = await db.polygon.deleteMany({
+      where: { userId: user.id }
+    });
+
+    console.log(`🗑️ Deletados ${result.count} polígonos de ${user.email}`);
+
+    return NextResponse.json({
+      success: true,
+      deleted: result.count,
+    });
+
+  } catch (error) {
+    console.error('Erro ao deletar polígonos:', error);
+    return NextResponse.json({
+      error: 'Erro ao deletar polígonos',
       details: error instanceof Error ? error.message : 'Erro desconhecido'
     }, { status: 500 });
   }
