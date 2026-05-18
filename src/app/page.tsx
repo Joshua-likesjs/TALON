@@ -176,7 +176,7 @@ const TECH_STACK = [
   { name: "Leaflet.heat", category: "Mapa de Calor" },
   { name: "Recharts", category: "Visualização" },
   { name: "Socket.io", category: "Comunicação" },
-  { name: "Resend", category: "E-mail" },
+  { name: "EmailJS", category: "E-mail" },
   { name: "Tailwind CSS", category: "Estilização" },
   { name: "shadcn/ui", category: "Componentes" },
 ];
@@ -593,7 +593,7 @@ export default function LandingPage() {
                   <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
                     O TALON usa uma arquitetura híbrida: Firebase Realtime Database para
                     sincronização instantânea das posições, Prisma ORM com SQLite para
-                    persistência de alertas e zonas, e Resend para envio de notificações
+                    persistência de alertas e zonas, e EmailJS para envio de notificações
                     por e-mail.
                   </p>
                   <div className="space-y-4">
@@ -612,7 +612,7 @@ export default function LandingPage() {
                       },
                       {
                         icon: Mail,
-                        label: "Resend — envio automático de alertas por e-mail"
+                        label: "EmailJS — envio automático de alertas por e-mail"
                       },
                       {
                         icon: BarChart3,
