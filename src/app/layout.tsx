@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProviderVPJS } from "@/contexts/AuthContextVPJS";
 import { AnimalsProviderVPJS } from "@/contexts/AnimalsContextVPJS";
 
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -16,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TALON - Sistema de Geofencing para Monitoramento de Áreas",
+  title: "TALON",
   description:
     "Crie cercas virtuais e monitore posições em tempo real. Sistema de geofencing inteligente com alertas de entrada e saída, rastreamento de animais e visualização em mapas interativos.",
   keywords: [
@@ -32,7 +33,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "TALON Team" }],
   icons: {
-    icon: "/logo.svg",
+    icon: "logo-icon.png",
   },
   openGraph: {
     title: "TALON - Geofencing Inteligente",
