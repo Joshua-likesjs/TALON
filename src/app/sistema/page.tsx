@@ -696,21 +696,7 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2">
-            {/* Botão Verificar */}
-            <Button
-              onClick={handleCheckPosition}
-              disabled={polygons.every(p => p.vertices.length < 3)}
-              size="sm"
-              variant="outline"
-              className="h-8 px-2 sm:px-3"
-              title="Verificar se estou dentro de uma área"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:mr-1">
-                <circle cx="12" cy="12" r="10" />
-                <circle cx="12" cy="12" r="1" />
-              </svg>
-              <span className="hidden sm:inline">Verificar</span>
-            </Button>
+           
             
             {/* Botão Limpar */}
             <Button

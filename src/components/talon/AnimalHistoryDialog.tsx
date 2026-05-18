@@ -293,37 +293,7 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
   const [viewMode, setViewMode] = useState<ViewMode>('ambos');
   const [simulating, setSimulating] = useState(false);
 
-  // Simular histórico para o animal selecionado
-  const handleSimulate = async () => {
-    if (!animal?.location) return;
-    
-    setSimulating(true);
-    try {
-      const response = await fetch('/api/simulate-history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          codigo: animal.codigoVPJS,
-          baseLat: animal.location.latitudeVPJS,
-          baseLng: animal.location.longitudeVPJS,
-          numPoints: 25,
-        }),
-      });
-      const result = await response.json();
-      console.log('🔥 Simulação:', result);
-      if (result.success) {
-        // Recarregar histórico após simulação
-        await loadHistory();
-      } else {
-        alert(result.error || 'Erro ao simular histórico');
-      }
-    } catch (error) {
-      console.error('Erro ao simular:', error);
-      alert('Erro ao simular histórico');
-    } finally {
-      setSimulating(false);
-    }
-  };
+
 
   // Load history when dialog opens
   const loadHistory = useCallback(async () => {
@@ -459,28 +429,6 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
               </select>
             </div>
 
-            {/* Botão Simular */}
-            {animal?.location && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSimulate}
-                disabled={simulating}
-                className="h-8"
-              >
-                {simulating ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin mr-1" />
-                    <span className="hidden sm:inline">Simulando...</span>
-                  </>
-                ) : (
-                  <>
-                    🧪
-                    <span className="hidden sm:inline ml-1">Simular</span>
-                  </>
-                )}
-              </Button>
-            )}
 
             {/* View mode toggle */}
             <div className="flex gap-1 ml-auto">
