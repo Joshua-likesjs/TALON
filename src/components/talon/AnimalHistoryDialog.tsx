@@ -25,6 +25,10 @@ const periodOptions = [
   { label: '24h', seconds: 86400 },
   { label: '3 dias', seconds: 259200 },
   { label: '7 dias', seconds: 604800 },
+  { label: '15 dias', seconds: 1296000 },
+  { label: '1 mês', seconds: 2592000 },
+  { label: '3 meses', seconds: 7776000 },
+  { label: '6 meses', seconds: 15552000 },
 ];
 
 // View mode
@@ -302,7 +306,7 @@ export function AnimalHistoryDialog({ open, onOpenChange, animal }: AnimalHistor
     setLoading(true);
     try {
       console.log(`🔥 Carregando histórico para ${animal.codigoVPJS}...`);
-      const points = await loadAnimalHistory(animal.codigoVPJS, 2000);
+      const points = await loadAnimalHistory(animal.codigoVPJS, 20000);
       console.log(`🔥 Histórico carregado: ${points.length} pontos`);
       
       // Se não há histórico mas temos localização atual, usar como ponto único

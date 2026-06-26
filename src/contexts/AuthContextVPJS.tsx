@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode, useMemo, useCallback } from 'react';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
@@ -33,6 +33,11 @@ interface PolygonVPJS {
   corVPJS: string;
   verticesVPJS: VertexVPJS[];
   createdAtVPJS: number;
+  // Campos de polígono público
+  isPublicVPJS?: boolean;
+  createdByUidVPJS?: string;
+  createdByNameVPJS?: string;
+  animalCodeVPJS?: string;
 }
 
 interface TimerVPJS {
@@ -56,6 +61,10 @@ interface AuthContextTypeVPJS {
   polygonsVPJS: PolygonVPJS[] | null; // null = ainda não carregado
   saveTimerVPJS: (timer: TimerVPJS | null) => Promise<void>;
   timerVPJS: TimerVPJS | null; // null = sem timer ativo
+  savePublicPolygonVPJS: (polygon: PolygonVPJS, animalCode: string) => Promise<void>;
+  removePublicPolygonVPJS: (polygonId: string, animalCode: string) => Promise<void>;
+  publicPolygonsVPJS: PolygonVPJS[]; // polígonos públicos dos animais rastreados
+  setTrackedAnimalCodesForPublicVPJS: (codes: string[]) => void;
 }
 
 const AuthContextVPJS = createContext<AuthContextTypeVPJS | undefined>(undefined);
@@ -178,6 +187,9 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
   const [loadingVPJS, setLoadingVPJS] = useState(true);
   const [polygonsVPJS, setPolygonsVPJS] = useState<PolygonVPJS[] | null>(null); // null = não carregado ainda
   const [timerVPJS, setTimerVPJS] = useState<TimerVPJS | null>(null); // null = sem timer ativo
+  const [publicPolygonsVPJS, setPublicPolygonsVPJS] = useState<PolygonVPJS[]>([]); // polígonos públicos dos animais rastreados
+  const [trackedAnimalCodesVPJS, setTrackedAnimalCodesVPJS] = useState<string[]>([]); // códigos dos animais sendo rastreados
+  const trackedCodesKeyRef = useRef<string>(""); // chave serializada para evitar re-renders desnecessários
 
   // Firebase auth state listener
   useEffect(() => {
@@ -335,6 +347,62 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
     onValue(timerRef, handleSnapshot);
     return () => off(timerRef);
   }, [userVPJS]);
+
+  // Listen to public polygons of tracked animals
+  useEffect(() => {
+    if (!database || trackedAnimalCodesVPJS.length === 0) return;
+
+    const listeners: (() => void)[] = [];
+    const publicByAnimal: { [codigo: string]: PolygonVPJS[] } = {};
+
+    trackedAnimalCodesVPJS.forEach((codigo) => {
+      const publicRef = ref(database!, `animaisVPJS/${codigo}/polygonsVPJS`);
+
+      const handleSnapshot = (snapshot: any) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const list: PolygonVPJS[] = [];
+
+          const parse = (polygon: any) => {
+            if (polygon && polygon.idVPJS) {
+              list.push({
+                idVPJS: polygon.idVPJS,
+                nomeVPJS: polygon.nomeVPJS || 'Polígono',
+                corVPJS: polygon.corVPJS || '#585c2b',
+                verticesVPJS: polygon.verticesVPJS || [],
+                createdAtVPJS: polygon.createdAtVPJS || Date.now(),
+                isPublicVPJS: true,
+                createdByUidVPJS: polygon.createdByUidVPJS || '',
+                createdByNameVPJS: polygon.createdByNameVPJS || '',
+                animalCodeVPJS: codigo,
+              });
+            }
+          };
+
+          if (Array.isArray(data)) {
+            data.forEach(parse);
+          } else {
+            Object.values(data).forEach((p: any) => parse(p));
+          }
+
+          publicByAnimal[codigo] = list;
+        } else {
+          publicByAnimal[codigo] = [];
+        }
+
+        // Merge all public polygons
+        const allPublic: PolygonVPJS[] = [];
+        Object.values(publicByAnimal).forEach((arr) => allPublic.push(...arr));
+        setPublicPolygonsVPJS(allPublic);
+        console.log('🌐 Polígonos públicos carregados:', allPublic.length);
+      };
+
+      onValue(publicRef, handleSnapshot);
+      listeners.push(() => off(publicRef));
+    });
+
+    return () => listeners.forEach((unsub) => unsub());
+  }, [trackedAnimalCodesVPJS]);
 
   // Update localStorage for demo mode
   useEffect(() => {
@@ -712,6 +780,98 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
     }
   }, [userVPJS]);
 
+  const savePublicPolygonVPJS = useCallback(async (polygon: PolygonVPJS, animalCode: string) => {
+    if (!userVPJS) throw new Error('Usuário não está logado');
+    if (!isFirebaseConfigured || !database) throw new Error('Firebase não configurado');
+
+    console.log('🌐 Tornando polígono público:', polygon.idVPJS, 'para animal:', animalCode);
+
+    // 1. Salvar no nó do animal
+    const animalPolygonsRef = ref(database, `animaisVPJS/${animalCode}/polygonsVPJS`);
+    const snapshot = await get(animalPolygonsRef);
+    let polygonsList: PolygonVPJS[] = [];
+
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      if (Array.isArray(data)) {
+        polygonsList = data.filter((p: any) => p && p.idVPJS && p.idVPJS !== polygon.idVPJS);
+      } else {
+        polygonsList = Object.values(data).filter((p: any) => p && p.idVPJS && p.idVPJS !== polygon.idVPJS) as PolygonVPJS[];
+      }
+    }
+
+    polygonsList.push({
+      ...polygon,
+      isPublicVPJS: true,
+      createdByUidVPJS: userVPJS.uidVPJS,
+      createdByNameVPJS: userVPJS.nomeVPJS,
+      animalCodeVPJS: animalCode,
+    });
+
+    await set(animalPolygonsRef, polygonsList);
+
+    // 2. Remover do nó privado do usuário
+    const privatePolygonsRef = ref(database, `usuarios/${userVPJS.uidVPJS}/polygonsVPJS`);
+    const privateSnap = await get(privatePolygonsRef);
+    if (privateSnap.exists()) {
+      const data = privateSnap.val();
+      let privateList: PolygonVPJS[] = [];
+      if (Array.isArray(data)) {
+        privateList = data.filter((p: any) => p && p.idVPJS && p.idVPJS !== polygon.idVPJS);
+      } else {
+        privateList = Object.values(data).filter((p: any) => p && p.idVPJS && p.idVPJS !== polygon.idVPJS) as PolygonVPJS[];
+      }
+      await set(privatePolygonsRef, privateList);
+    }
+
+    console.log('🌐 Polígono tornado público com sucesso!');
+  }, [userVPJS]);
+
+  const removePublicPolygonVPJS = useCallback(async (polygonId: string, animalCode: string) => {
+    if (!userVPJS) throw new Error('Usuário não está logado');
+    if (!isFirebaseConfigured || !database) throw new Error('Firebase não configurado');
+
+    console.log('🔒 Tornando polígono privado:', polygonId);
+
+    // 1. Buscar o polígono no nó do animal
+    const animalPolygonsRef = ref(database, `animaisVPJS/${animalCode}/polygonsVPJS`);
+    const snapshot = await get(animalPolygonsRef);
+
+    if (!snapshot.exists()) return;
+
+    const data = snapshot.val();
+    let polygonsList: PolygonVPJS[] = Array.isArray(data)
+      ? data
+      : Object.values(data) as PolygonVPJS[];
+
+    const target = polygonsList.find((p: any) => p.idVPJS === polygonId);
+    if (!target) return;
+
+    // 2. Remover do nó do animal
+    const newAnimalList = polygonsList.filter((p: any) => p.idVPJS !== polygonId);
+    await set(animalPolygonsRef, newAnimalList);
+
+    // 3. Salvar no nó privado do usuário atual
+    const privatePolygonsRef = ref(database, `usuarios/${userVPJS.uidVPJS}/polygonsVPJS`);
+    const privateSnap = await get(privatePolygonsRef);
+    let privateList: PolygonVPJS[] = [];
+    if (privateSnap.exists()) {
+      const pd = privateSnap.val();
+      privateList = Array.isArray(pd) ? pd : Object.values(pd) as PolygonVPJS[];
+    }
+
+    privateList.push({
+      ...target,
+      isPublicVPJS: false,
+      createdByUidVPJS: undefined,
+      createdByNameVPJS: undefined,
+      animalCodeVPJS: undefined,
+    });
+    await set(privatePolygonsRef, privateList);
+
+    console.log('🔒 Polígono tornado privado com sucesso!');
+  }, [userVPJS]);
+
   const saveTimerVPJS = useCallback(async (timer: TimerVPJS | null) => {
     if (!userVPJS) throw new Error('Usuário não está logado');
     
@@ -729,6 +889,14 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
     }
   }, [userVPJS]);
 
+  const setTrackedAnimalCodesForPublicVPJS = useCallback((codes: string[]) => {
+    const key = [...codes].sort().join(',');
+    if (key !== trackedCodesKeyRef.current) {
+      trackedCodesKeyRef.current = key;
+      setTrackedAnimalCodesVPJS([...codes]);
+    }
+  }, []);
+
   const value = useMemo(() => ({
     userVPJS,
     loadingVPJS,
@@ -744,6 +912,10 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
     polygonsVPJS,
     saveTimerVPJS,
     timerVPJS,
+    savePublicPolygonVPJS,
+    removePublicPolygonVPJS,
+    publicPolygonsVPJS,
+    setTrackedAnimalCodesForPublicVPJS,
   }), [
     userVPJS, 
     loadingVPJS, 
@@ -758,7 +930,11 @@ export function AuthProviderVPJS({ children }: { children: React.ReactNode }) {
     savePolygonsVPJS,
     polygonsVPJS,
     saveTimerVPJS,
-    timerVPJS
+    timerVPJS,
+    savePublicPolygonVPJS,
+    removePublicPolygonVPJS,
+    publicPolygonsVPJS,
+    setTrackedAnimalCodesForPublicVPJS,
   ]);
 
   return (

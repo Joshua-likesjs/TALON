@@ -72,11 +72,11 @@ async function removeAnimalFromPrisma(firebaseUid: string, animalCode: string) {
 // Local storage key for tracked animal codes (só os códigos, dados ficam no Firebase)
 const LOCAL_TRACKED_ANIMALS_KEY = 'talon_tracked_animals_codes_vpjs';
 
-// Manter histórico de 7 dias (em ms)
-const HISTORY_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+// Manter histórico de 6 meses (em ms)
+const HISTORY_RETENTION_MS = 6 * 30 * 24 * 60 * 60 * 1000;
 
-// Máximo de pontos por animal
-const MAX_HISTORY_POINTS = 500;
+// Máximo de pontos por animal (6 meses com ~1 ponto a cada 15min ≈ 17.280 pontos)
+const MAX_HISTORY_POINTS = 20000;
 
 // Distância mínima em metros para salvar novo ponto (evitar pontos muito próximos)
 const MIN_DISTANCE_METERS = 10;
@@ -169,7 +169,7 @@ export function AnimalsProviderVPJS({ children }: { children: React.ReactNode })
           }
         }
         
-        // Limpar pontos antigos (mais de 7 dias) e excesso de pontos
+        // Limpar pontos antigos (mais de 6 meses) e excesso de pontos
         const cutoffTime = Date.now() - HISTORY_RETENTION_MS;
         const deletePromises: Promise<void>[] = [];
         

@@ -10,6 +10,11 @@ export interface LocalPolygon {
   nome: string;
   cor: string;
   vertices: Point[];
+  // Campos de polígono público
+  isPublic?: boolean;
+  createdByUid?: string;
+  createdByName?: string;
+  animalCode?: string; // código do animal ao qual o polígono público pertence
 }
 
 // Cores disponíveis para polígonos

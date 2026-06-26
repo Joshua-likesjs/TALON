@@ -646,6 +646,7 @@ interface MapViewProps {
   onSelectPolygon: (id: string) => void;
   onDeletePolygon: (id: string) => void;
   onRenamePolygon: () => void;
+  onTogglePublicPolygon: (polygonId: string, makePublic: boolean, animalCode?: string) => void;
   trackedAnimals?: TrackedAnimalVPJS[];
 }
 
@@ -664,6 +665,7 @@ export default function MapView({
   onSelectPolygon,
   onDeletePolygon,
   onRenamePolygon,
+  onTogglePublicPolygon,
   trackedAnimals = [],
 }: MapViewProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -767,21 +769,57 @@ export default function MapView({
               </span>
             </button>
             
+            {/* Indicador público (ícone globo pequeno no canto do círculo) */}
+            {polygon.isPublic && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-blue-500 border-2 border-background flex items-center justify-center" title={`Público — criado por ${polygon.createdByName || 'outro usuário'}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+              </span>
+            )}
+
             {/* Menu de contexto (mostra no hover para o selecionado) */}
             {polygon.id === selectedPolygonId && (
               <div className="absolute right-14 top-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* Botão renomear — só para polígonos privados */}
+                {!polygon.isPublic && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRenamePolygon();
+                    }}
+                    className="h-8 w-8 rounded-full bg-card shadow flex items-center justify-center hover:bg-accent"
+                    title="Renomear"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                    </svg>
+                  </button>
+                )}
+
+                {/* Botão público/privado */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onRenamePolygon();
+                    onTogglePublicPolygon(polygon.id, !polygon.isPublic, polygon.animalCode);
                   }}
-                  className="h-8 w-8 rounded-full bg-card shadow flex items-center justify-center hover:bg-accent"
-                  title="Renomear"
+                  className={`h-8 w-8 rounded-full shadow flex items-center justify-center transition-all ${polygon.isPublic ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-card hover:bg-accent'}`}
+                  title={polygon.isPublic ? 'Tornar privado' : 'Tornar público'}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-                  </svg>
+                  {polygon.isPublic ? (
+                    /* Cadeado fechado = tornar privado */
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                  ) : (
+                    /* Globo = tornar público */
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                  )}
                 </button>
+
+                {/* Botão deletar */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
