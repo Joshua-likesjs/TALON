@@ -1,0 +1,210 @@
+#define TINY_GSM_MODEM_SIM7000
+#include <TinyGsmClient.h>
+#include <WiFi.h>
+#include <Firebase_ESP_Client.h>
+
+// --- CREDENCIAIS ---
+#define FIREBASE_HOST "talon-tcc-project-default-rtdb.firebaseio.com"
+#define FIREBASE_AUTH "5DOooaFIE3iSc9iQpEYZnInPu9eQP0USIM24c3df"
+#define WIFI_SSID "J.Ga"
+#define WIFI_PASSWORD "JJGS4049"
+
+const char apn[] = "claro.com.br";
+const char gprsUser[] = "claro";
+const char gprsPass[] = "claro";
+long long intervaloEnvio = 15;
+
+String uidUsuario = "LDL9qmv3noQgMnGHWkOrQqGIJjw2";
+String nomeAnimal = "tatu02";
+bool isUmaHora = false;
+
+// --- PINOS ---
+#define UART_BAUD   115200
+#define PIN_TX      27
+#define PIN_RX      26
+#define PWR_PIN     4
+#define LED_PIN     12
+#define BAT_ADC     35  // DEFINIDO AQUI
+
+// Use Serial1 para evitar conflitos internos
+#define SerialAT Serial1
+
+  TinyGsm modem(SerialAT);
+TinyGsmClient gsmClient(modem);
+FirebaseData fbdo;
+FirebaseConfig config;
+FirebaseAuth auth;
+
+void gprsConnect() {
+  if (!modem.isGprsConnected())
+  {
+    Serial.println("Tentando GPRS..."); 
+    modem.waitForNetwork(35000L);
+    modem.gprsConnect(apn, gprsUser, gprsPass);
+    if (modem.isGprsConnected())
+    {
+    Serial.print("IP obtido: ");
+    Serial.println(modem.localIP());
+    }
+    else Serial.println("Falha ao obter IP da Claro");
+    
+  }
+}
+
+void modemPowerOn() {
+    
+    digitalWrite(PWR_PIN, LOW);
+    delay(100);
+    digitalWrite(PWR_PIN, HIGH);
+    delay(1200);
+    digitalWrite(PWR_PIN, LOW);
+    delay(3000);
+}
+
+void setup() {
+  Serial.begin(UART_BAUD);
+  // Importante: Inicie a Serial do Modem com os pinos corretos
+  SerialAT.begin(UART_BAUD, SERIAL_8N1, PIN_RX, PIN_TX);
+
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH);
+  pinMode(14, OUTPUT);
+  digitalWrite(14, HIGH);
+  pinMode(PWR_PIN, OUTPUT); 
+
+  Serial.println("--- INICIANDO SISTEMA ---");
+
+  if (!modem.testAT()) modemPowerOn();
+
+  modem.init();
+  modem.setNetworkMode(2);
+  modem.setPreferredMode(3);
+  
+  // Ativa GPS e Antena
+  modem.sendAT("+SGPIO=0,4,1,1"); 
+  modem.sendAT("+CGNSPWR=1");     
+  modem.waitResponse();
+
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  config.database_url = FIREBASE_HOST;
+  config.signer.tokens.legacy_token = FIREBASE_AUTH;
+  config.cert.data = NULL; 
+  fbdo.setExternalClient(&gsmClient);
+  config.timeout.serverResponse = 15000; // 15s é o ideal para evitar timeout SSL
+
+ 
+  fbdo.setResponseSize(1024); // Aumentado um pouco para evitar corte no JSON
+  Firebase.begin(&config, &auth);
+  Firebase.reconnectWiFi(true);
+  
+  Serial.println("INIT TALON 🔥🧑🏾‍💻🔥");
+  modem.sendAT("+CLTS=1");
+  modem.waitResponse();
+}
+
+int lerBateria() {
+  uint32_t volt = 0;
+  for (int i = 0; i < 10; i++) {
+    volt += analogRead(BAT_ADC); // USANDO BAT_ADC (35)
+    delay(5);
+  }
+  volt /= 10;
+  float voltage = (volt * 3.3 / 4095.0) * 2.0 * 1.13;
+  int percent = map(voltage * 100, 365, 420, 0, 100);
+  return constrain(percent, 0, 100);
+}
+
+void enviarAoFirebase(float lat, float lon, int bat) {
+  String path = "/animaisVPJS/" + nomeAnimal;
+  FirebaseJson json;
+  json.set("latitude", lat);
+  json.set("longitude", lon);
+  json.set("bateria", bat);
+  json.set("timestamp/.sv", "timestamp");
+
+  
+  if (Firebase.RTDB.updateNode(&fbdo, path.c_str(), &json)) {
+    Serial.println("✓ SUCESSO NO FIREBASE!");
+    digitalWrite(LED_PIN, LOW); delay(500); digitalWrite(LED_PIN, HIGH);
+    getDelay();
+    
+  } else {
+    Serial.print("Erro: ");
+    Serial.println(fbdo.errorReason());
+    // Se perder a conexão, apenas reinicia a sessão do Firebase, sem resetar o modem
+    if (fbdo.errorReason() == "connection lost") {
+       Firebase.begin(&config, &auth);
+    }
+  }
+}
+
+void getDelay() {
+ 
+  String path = "/usuarios/" + uidUsuario + "/timerVPJS/durationVPJS";
+  Serial.println("Buscando configuracao...");
+  
+  if (Firebase.RTDB.getInt(&fbdo, path.c_str())) {
+    if (fbdo.dataType() == "int") intervaloEnvio = fbdo.intData();
+    Serial.println("Intervalo encontrado: " + String(intervaloEnvio) + " segundos ⏱️");
+    }
+   else
+   {
+     Serial.print("Erro ao buscar: ");
+     Serial.println(fbdo.errorReason());
+     Serial.print("Intervalo definido como uma hora...");
+     if(isUmaHora) intervaloEnvio = 3600;
+     else intervaloEnvio = 36;
+   }
+ }
+
+void loop() {
+  float lat = 0, lon = 0;
+  int bateria = lerBateria();
+
+  Serial.printf("[%d%%] ", bateria);
+
+  if (modem.getGPS(&lat, &lon)) 
+  {
+    Serial.printf("GPS Fix! Lat: %.6f Lon: %.6f\n", lat, lon);
+    digitalWrite(LED_PIN, LOW); delay(200); digitalWrite(LED_PIN, HIGH);    
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      Serial.println("WIFI ON");
+      enviarAoFirebase(lat, lon, bateria);
+    } 
+
+    else if(!modem.isGprsConnected()) 
+    {
+     
+      if(!modem.testAT())
+      {
+        Serial.println("Modem OFF, Retrying");
+        modemPowerOn();
+      }
+      gprsConnect();
+    }
+    else if(modem.isGprsConnected()) {Serial.println("CHIP ON 😈"); enviarAoFirebase(lat, lon, bateria);}
+    else if(!modem.isGprsConnected() && WiFi.status() != WL_CONNECTED)
+    {
+      Serial.println("NADA ON");
+      WiFi.reconnect();
+    }
+
+  } 
+  else
+  {
+    Serial.println("Procurando satelites...");
+    modem.enableGPS();
+    if (WiFi.status() == WL_CONNECTED) Serial.println("WIFI ON");
+    else if(modem.isGprsConnected()) Serial.println("CHIP ON 😈");
+    else if(!modem.isGprsConnected() && WiFi.status() != WL_CONNECTED) Serial.println("NADA ON");
+
+    if (!modem.testAT())
+    {
+      modemPowerOn();
+      Serial.println("Modem offline!");
+    } 
+  }
+  delay((intervaloEnvio-2)*1000);
+}
+
